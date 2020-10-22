@@ -1,0 +1,2 @@
+UVBW_TEST = False
+UVBW_TRAIN = True

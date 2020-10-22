@@ -1,0 +1,7 @@
+*.out
+piq*
+*.jpg
+output_text*
+summary*
+*.pkl
+*.pyc
