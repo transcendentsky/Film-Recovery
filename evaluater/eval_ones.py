@@ -84,7 +84,9 @@ def cal_MSE(img1, img2):
 
 def cal_SSIM(img1, img2, rgb=True):
     # print("rgb ", rgb)
-    return ssim(img1,img1,multichannel=rgb) ## for rgb
+    # return ssim(img1,img1) ## for rgb , func in skimage, work bad
+    _ssim = ssim(img2)
+    
 
 if __name__ == "__main__":
     a = np.random.rand(300,300,3)
@@ -96,4 +98,4 @@ if __name__ == "__main__":
     # cal_PSNR(a, b)
     # cal_MSE(a, b)
     # cal_MAE(a, b)
-    print(cal_SSIM(a, b, rgb=True))
+    print(cal_SSIM(a, b))

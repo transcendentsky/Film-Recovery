@@ -140,3 +140,9 @@ def uv2backward_trans(uv, mask, imsize=256):
     backward_img = np.stack([zy,zx],axis=2)
     # print_bw(bw)
     return backward_img
+
+if __name__ == "__main__":
+    x = np.arange(5)
+    y = np.arange(5)
+    xi, yi = np.meshgrid(x, y)
+    print(xi)

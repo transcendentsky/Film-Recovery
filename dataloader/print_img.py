@@ -55,7 +55,8 @@ def print_img_np(img, img_type, is_gt=True, fname=None):
     ### -------  Add Extra print func
     elif img_type == "bw_uv":
         print_bw_uv(img, is_gt, fname=fname)
-
+    elif img_type == "deform":
+        print_deform(img, is_gt, fname=fname)
     else:
         raise TypeError("print_img Error!!!")
 
@@ -101,8 +102,8 @@ def print_bw(bw, is_gt, epoch=0, fname=None):
     fname = tfilename(fname) if fname is not None else tfilename("imgshow",epoch_text,"bw_"+subtitle+"/bw_"+generate_name()+".jpg")
     cv2.imwrite(fname, bw)
     ###  For test
-    cv2.imwrite(tfilename("bw_test/c1.jpg"), bw[:,:,0])
-    cv2.imwrite(tfilename("bw_test/c2.jpg"), bw[:,:,1])
+    # cv2.imwrite(tfilename("bw_test/c1.jpg"), bw[:,:,0])
+    # cv2.imwrite(tfilename("bw_test/c2.jpg"), bw[:,:,1])
 
 def print_bw_uv(bw, is_gt, epoch, fname=None):
     subtitle = "gt" if is_gt else "pred"
@@ -149,3 +150,24 @@ def print_ab(ab, is_gt, epoch=0, fname=None):
     ab = ab.astype(np.uint8)
     fname = tfilename(fname) if fname is not None else tfilename("imgshow",epoch_text,"ab_"+subtitle+"/ab_"+generate_name()+".jpg")
     cv2.imwrite(fname, ab)
+
+def print_deform(bw, is_gt, epoch=0, fname=None):
+    imsize = bw.shape[1]
+    x = np.arange(imsize)
+    y = np.arange(imsize)
+    xi, yi = np.meshgrid(x, y)
+    bw[:,:,0] = bw[:,:,0] - xi
+    bw[:,:,1] = bw[:,:,1] - yi
+    subtitle = "gt" if is_gt else "pred"
+    epoch_text = "epoch{}".format(epoch)
+    assert np.max(bw) > 1, "Value Error??? all vallues <= 1"
+    assert np.ndim(bw) == 3, "np.ndim Error"
+    # print("print_bw: bw.shape", bw.shape)
+    bw = bw.astype(np.uint8)
+    bb = np.zeros((256,256,1))
+    bw = np.concatenate([bw, bb], axis=2)
+    fname = tfilename(fname) if fname is not None else tfilename("imgshow",epoch_text,"bw_"+subtitle+"/bw_"+generate_name()+".jpg")
+    cv2.imwrite(fname, bw)
+    ###  For test
+    # cv2.imwrite(tfilename("bw_test/c1.jpg"), bw[:,:,0])
+    # cv2.imwrite(tfilename("bw_test/c2.jpg"), bw[:,:,1])

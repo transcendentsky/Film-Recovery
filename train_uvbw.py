@@ -130,7 +130,7 @@ def train(args, model, device, train_loader, optimizer, criterion, epoch, writer
                     bw_pred = bw_map[k, :, :, :]
                     cmap_gt = threeD_map_gt[k, :, :, :]
 
-                    output_dir1 = tdir(output_dir + '/uvbw/train/', 'epoch_{}_batch_{}/'.format(epoch, batch_idx))
+                    output_dir1 = tdir(output_dir + '/uvbw_train/', 'epoch_{}_batch_{}/'.format(epoch, batch_idx))
                     """pred"""
                     print_img_with_reprocess(uv_pred, img_type="uv", fname=tfilename(output_dir1 + 'train/epoch_{}/pred_uv_ind_{}'.format(epoch, k) + '.jpg'))
                     # print_img_with_reprocess(bw_from_uv, img_type="bw", fname=tfilename(output_dir1 + 'train/epoch_{}/bw_f_uv_ind_{}'.format(epoch, k) + '.jpg'))
@@ -163,6 +163,7 @@ def test(args, model, test_loader, optimizer, criterion, \
     cc1, cc2, cc3, cc4 = 0, 0, 0, 0
     psnr1, psnr2, psnr3, psnr4 = 0, 0, 0, 0
     ssim1, ssim2, ssim3, ssim4 = 0, 0, 0, 0
+    m1, m2, s1, s2 = 0,0,0,0
 
     for batch_idx, data in enumerate(test_loader):
         if batch_idx >= 100:
@@ -230,11 +231,11 @@ def test(args, model, test_loader, optimizer, criterion, \
         writer.add_scalar('psnr_one/ori_uv_loss', l3,  global_step=batch_idx)
         writer.add_scalar('psnr_one/ori_bw_loss', l4, global_step=batch_idx)
         # ----------  SSIM  -------------------
-        l1, l2, l3, l4 = uvbw_loss_np_batch(uv_np, bw_np, bw_gt_np, mask_np, ori, metrix="ssim")
-        ssim1 += l1
-        ssim2 += l2
-        ssim3 += l3
-        ssim4 += l4
+        # l1, l2, l3, l4 = uvbw_loss_np_batch(uv_np, bw_np, bw_gt_np, mask_np, ori, metrix="ssim")
+        # ssim1 += l1
+        # ssim2 += l2
+        # ssim3 += l3
+        # ssim4 += l4
         writer.add_scalar('ssim_one/uv_bw_loss' , l1,  global_step=batch_idx)
         writer.add_scalar('ssim_one/bw_loss',     l2, global_step=batch_idx)
         writer.add_scalar('ssim_one/ori_uv_loss', l3,  global_step=batch_idx)
@@ -280,7 +281,79 @@ def test(args, model, test_loader, optimizer, criterion, \
         print_img_auto(mask_np[0,:,:,:],  "background", is_gt=False, fname=tfilename(output_dir, "test_uvbw/batch_{}/bg_gt.jpg".format(batch_idx)))
         print_img_auto(ori[0,:,:,:],      "ori", is_gt=False, fname=tfilename(output_dir, "test_uvbw/batch_{}/ori_gt.jpg".format(batch_idx)))
 
+        # Write bw diffs
+        diff1 = bw_gt_np[0,:,:,:] - bw_np[0,:,:,:]
+        diff2 = bw_gt_np[0,:,:,:] - bw_uv[0,:,:,:]
+        max1 = np.max(diff1)
+        max2 = np.max(diff2)
+        min1 = np.min(diff1)
+        min2 = np.min(diff2)
+        max_both = np.max([max1, max2])
+        min_both = np.min([min1, min2])
+        diff_p1 = (diff1 - min_both) / (max_both - min_both) * 255
+        diff_p2 = (diff2 - min_both) / (max_both - min_both) * 255
+        mean1_1 = np.average(diff1[0,:,:,0])
+        mean1_2 = np.average(diff1[0,:,:,1])
+        mean2_1 = np.average(diff2[0,:,:,0])
+        mean2_2 = np.average(diff2[0,:,:,1])
+        # mean2 = np.average(diff2)
+        std1 = np.std(diff1)
+        std2 = np.std(diff2)
+        m1_1 += np.abs(mean1_1)
+        m1_2 += np.abs(mean1_2)
+        m2_1 += np.abs(mean2_1)
+        m2_2 += np.abs(mean2_2)
+        s1 += std1
+        s2 += std2
 
+        diff1[0,:,:,0] = diff1[0,:,:,0] - mean1_1
+        diff1[0,:,:,1] = diff1[0,:,:,1] - mean1_2
+        diff2[0,:,:,0] = diff2[0,:,:,0] - mean2_1
+        diff2[0,:,:,1] = diff2[0,:,:,1] - mean2_2
+        writer.add_scalar("bw_all_single/mean1_1", mean1_1, global_step=batch_idx)
+        writer.add_scalar("bw_all_single/mean1_2", mean1_2, global_step=batch_idx)
+        writer.add_scalar("bw_all_single/mean2_1", mean2_1, global_step=batch_idx)
+        writer.add_scalar("bw_all_single/mean2_2", mean2_2, global_step=batch_idx)
+        writer.add_scalar("bw_all_single/std_1", std1, global_step=batch_idx)
+        writer.add_scalar("bw_all_single/std_2", std2, global_step=batch_idx)
+        writer.add_scalar("bw_all_total/m1_1", m1_1, global_step=batch_idx)
+        writer.add_scalar("bw_all_total/m1_2", m1_2, global_step=batch_idx)
+        writer.add_scalar("bw_all_total/m2_1", m2_1, global_step=batch_idx)
+        writer.add_scalar("bw_all_total/m2_2", m2_2, global_step=batch_idx)
+        writer.add_scalar("bw_all_total/mean2", m2, global_step=batch_idx)
+        writer.add_scalar("bw_all_total/std_1", s1, global_step=batch_idx)
+        writer.add_scalar("bw_all_total/std_2", s2, global_step=batch_idx)
+        
+        print_img_auto(diff_p1, "bw", fname=tfilename(output_dir, "test_uvbw/batch_{}/diff_bw.jpg".format(batch_idx)))
+        print_img_auto(diff_p2, "bw", fname=tfilename(output_dir, "test_uvbw/batch_{}/diff_bwuv.jpg".format(batch_idx)))
+        print_img_auto(diff_m1, "bw", fname=tfilename(output_dir, "test_uvbw/batch_{}/diff_m_bw.jpg".format(batch_idx)))
+        print_img_auto(diff_m2, "bw", fname=tfilename(output_dir, "test_uvbw/batch_{}/diff_m_bwuv.jpg".format(batch_idx)))
+        # Write diffs Ori
+        # diff1 = np.abs(dewarp_ori_bw[0,:,:,:] - dewarp_ori_gt[0,:,:,:])
+        # diff2 = np.abs(dewarp_ori_uv[0,:,:,:] - dewarp_ori_gt[0,:,:,:])
+        # max1 = np.max(diff1)
+        # max2 = np.max(diff2)
+        # max_both = np.max([max1, max2])
+        # diff1 = diff1 / max_both * 255
+        # diff2 = diff2 / max_both * 255
+        # mean1 = np.average(diff1)
+        # mean2 = np.average(diff2)
+        # std1 = np.std(diff2)
+        # std2 = np.std(diff2)
+
+        # diff_m1 = diff1 - mean1
+        # diff_m2 = diff2 - mean2
+
+        # print_img_auto(diff1, "bw", fname=tfilename(output_dir, "test_uvbw/batch_{}/diff_bw.jpg".format(batch_idx)))
+        # print_img_auto(diff2, "bw", fname=tfilename(output_dir, "test_uvbw/batch_{}/diff_bwuv.jpg".format(batch_idx)))
+        # print_img_auto(diff_m1, "bw", fname=tfilename(output_dir, "test_uvbw/batch_{}/diff_m_bw.jpg".format(batch_idx)))
+        # print_img_auto(diff_m2, "bw", fname=tfilename(output_dir, "test_uvbw/batch_{}/diff_m_bwuv.jpg".format(batch_idx)))
+                
+        # print_img_auto(diffo1, "ori", fname=)
+        # print_img_auto(bw_gt_np[0,:,:,:], "deform", fname=tfilename(output_dir, "test_uvbw/batch_{}/deform_gt.jpg".format(batch_idx)))
+        # print_img_auto(bw_np[0,:,:,:], "deform", fname=tfilename(output_dir, "test_uvbw/batch_{}/deform_bw.jpg".format(batch_idx)))
+        # print_img_auto(bw_uv[0,:,:,:], "deform", fname=tfilename(output_dir, "test_uvbw/batch_{}/deform_bwuv.jpg".format(batch_idx)))
+        
     # print("Loss:")
     # print("mse: {} {}".format(mse_bw/count, mse_ori/count))
     # print("cc: {} {}".format(cc_bw/count, cc_ori/count))
@@ -318,7 +391,8 @@ def main():
     # Load Parameters
     #if args.pretrained:
     if UVBW_TEST:
-        pre_model = "/home1/quanquan/film_code/test_output2/20201018-070501z0alvFmodels/uvbw/tv_constrain_35.pkl"
+        # pre_model = "/home1/quanquan/film_code/test_output2/20201018-070501z0alvFmodels/uvbw/tv_constrain_35.pkl"
+        pre_model = "/home1/quanquan/film_code/test_output2/20201021-094607K3qzNUmodels/uvbw/tv_constrain_69.pkl"
         pretrained_dict = torch.load(pre_model, map_location=None)
         model.load_state_dict(pretrained_dict['model_state'])
         start_lr = pretrained_dict['lr']
@@ -369,7 +443,7 @@ def main():
                      'model_state': model.state_dict(),
                      'optimizer_state': optimizer.state_dict()
                      }
-            torch.save(state, tfilename(output_dir+ "models/uvbw/{}_{}.pkl".format(args.model_name, epoch)))
+            torch.save(state, tfilename(output_dir, "models/uvbw/{}_{}.pkl".format(args.model_name, epoch)))
 
 
 def exist_or_make(path):

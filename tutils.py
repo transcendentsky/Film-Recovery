@@ -68,7 +68,16 @@ def generate_name():
 #     pass
 
 def tdir(*dir_paths):
-    dir_path = os.path.join(*dir_paths)
+    def checkslash(name):
+        if name.startswith("/"):
+            name = name[1:]
+            return checkslash(name)
+        else:
+            return name
+    names = [dir_paths[0]]
+    for name in dir_paths[1:]:
+        names.append(checkslash(name))
+    dir_path = os.path.join(*names)
     d(dir_path)
     if not os.path.exists(dir_path):
         d("Create Dir Path: ", dir_path)
@@ -77,7 +86,16 @@ def tdir(*dir_paths):
     return dir_path
 
 def tfilename(*filenames):
-    filename = os.path.join(*filenames)
+    def checkslash(name):
+        if name.startswith("/"):
+            name = name[1:]
+            return checkslash(name)
+        else:
+            return name
+    names = [filenames[0]]
+    for name in filenames[1:]:
+        names.append(checkslash(name))
+    filename = os.path.join(*names)
     d(filename)
     parent, name = os.path.split(filename)
     if not os.path.exists(parent):
@@ -96,6 +114,7 @@ def ttsave(state, path, configs=None):
     
 
 if __name__ == "__main__":
-    tt()
-    # tfilename("dasd", "dasdsa")
+    # tt()
+    # tfilename("dasd", "/dasdsa", "/dsad")
+    tdir("dasd", "/dsadads", "/dsdas")
 

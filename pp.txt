@@ -1,0 +1,3 @@
+We propose a constrained multimap guided dewarping network， we concat 3dmap, normal map, depth map, and original image to generate uv map, 
+which performs better than backward map generated directly. Why? because the process from 3d map ,etc. to uv map 
+is 

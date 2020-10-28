@@ -1,2 +1,4 @@
-UVBW_TEST = False
-UVBW_TRAIN = True
+
+###  UVBW Training
+UVBW_TEST = True
+UVBW_TRAIN = False
