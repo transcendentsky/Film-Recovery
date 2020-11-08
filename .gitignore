@@ -21,3 +21,4 @@ __pycache__/*
 imgshow/*
 film_output/*
 *.swp
+*.txt
