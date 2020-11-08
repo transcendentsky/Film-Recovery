@@ -14,6 +14,7 @@ def print_img_with_reprocess(img, img_type, fname=None):
 
 
 def print_img_auto(img, img_type, is_gt=True, fname=None):
+    print("[Warning] Pause to use print img, "); return
     if type(img) is torch.Tensor:
         print_img_tensor(img, img_type, is_gt, fname)
     elif type(img) is np.ndarray:
@@ -52,11 +53,13 @@ def print_img_np(img, img_type, is_gt=True, fname=None):
         print_ori(img, is_gt, fname=fname)
     elif img_type == "ab":
         print_ab(img, is_gt, fname=fname)
+    elif img_type == "deform":
+        print_deform(img, is_gt, fname=fname)
     ### -------  Add Extra print func
     elif img_type == "bw_uv":
         print_bw_uv(img, is_gt, fname=fname)
-    elif img_type == "deform":
-        print_deform(img, is_gt, fname=fname)
+    elif img_type == "deform_bw":
+        print_deform_from_bw(img, is_gt, fname=fname)
     else:
         raise TypeError("print_img Error!!!")
 
@@ -120,6 +123,8 @@ def print_uv(uv, is_gt, epoch=0, fname=None): # [0,1]
     bb = np.zeros((256,256,1))
     uv = np.concatenate([uv, bb], axis=2)
     fname = tfilename(fname) if fname is not None else tfilename("imgshow",epoch_text,"uv_"+subtitle+"/uv_"+generate_name()+".jpg")
+    d("print_uv func: ")
+    print(np.sum(uv[:,:,2]))
     cv2.imwrite(fname, uv)
 
 def print_back(background, is_gt, epoch=0, fname=None): # [0,1]
@@ -129,6 +134,20 @@ def print_back(background, is_gt, epoch=0, fname=None): # [0,1]
     background = background.astype(np.uint8)
     fname = tfilename(fname) if fname is not None else tfilename("imgshow",epoch_text,"bg_"+subtitle+"/bg_"+generate_name()+".jpg")
     cv2.imwrite(fname, background)
+
+def print_deform(df, is_gt, epoch=0, fname=None):
+    subtitle = "gt" if is_gt else "pred"
+    epoch_text = "epoch{}".format(epoch)
+    df = df / 2.0 + 255. / 2.
+    df = df.astype(np.uint8)
+    bb = np.zeros((256,256,1))
+    df = np.concatenate([df, bb], axis=2)
+    fname = tfilename(fname) if fname is not None else tfilename("imgshow",epoch_text,"df_"+subtitle+"/df_"+generate_name()+".jpg")
+    cv2.imwrite(fname, df)
+    ###  For test
+    cv2.imwrite(tfilename("df_test/c1.jpg"), df[:,:,0])
+    cv2.imwrite(tfilename("df_test/c2.jpg"), df[:,:,1])
+
 # -----------------------------------------------------------------------------
 
 def print_ori(ori, is_gt, epoch=0, fname=None):
@@ -151,7 +170,7 @@ def print_ab(ab, is_gt, epoch=0, fname=None):
     fname = tfilename(fname) if fname is not None else tfilename("imgshow",epoch_text,"ab_"+subtitle+"/ab_"+generate_name()+".jpg")
     cv2.imwrite(fname, ab)
 
-def print_deform(bw, is_gt, epoch=0, fname=None):
+def print_deform_from_bw(bw, is_gt, epoch=0, fname=None):
     imsize = bw.shape[1]
     x = np.arange(imsize)
     y = np.arange(imsize)
@@ -171,3 +190,26 @@ def print_deform(bw, is_gt, epoch=0, fname=None):
     ###  For test
     # cv2.imwrite(tfilename("bw_test/c1.jpg"), bw[:,:,0])
     # cv2.imwrite(tfilename("bw_test/c2.jpg"), bw[:,:,1])
+
+def print_large_interpolation(uv, mask, fname):
+    uv_size = uv.shape[0]
+    expand_size = uv_size * 10
+
+    img_rgb = uv # [:, :, ::-1]
+    # img_rgb[:,:,1] = 1-img_rgb[:,:,1]
+    img_rgb[:,:,0] = 1-img_rgb[:,:,0]
+    
+    s_x = (img_rgb[:,:,0]*expand_size) # u
+    s_y = (img_rgb[:,:,1]*expand_size) # v
+    mask = mask[:,:,0] > 0.6   
+
+    img_rgb = np.round(img_rgb)
+    s_x = s_x[mask]
+    s_y = s_y[mask]
+    index = np.argwhere(mask)
+    t_y = index[:, 0]  # t_y and t_x is a map
+    t_x = index[:, 1]
+    # x = np.arange(expand_size)
+    # y = np.arange(expand_size)
+    # xi, yi = np.meshgrid(x, y)
+    mesh = np.zeros((expand_size, expand_size))

@@ -154,9 +154,30 @@ def test5():
     # print("dewarp.shape", dewarp_ori.shape)
     # print_img_auto(dewarp_ori[0, :, :, :], "ori", fname="bw_test/ori_3.jpg")
 
+def test6():    
+    data_path = '/home1/qiyuanwang/film_generate/npy/'
+    dataset = filmDataset_old(data_path, load_mod="deform_cmap")
+    data = dataset.__getitem__(0)
+    cmap = data[0]
+    uv = data[1]
+    df = data[2]
+    bw = data[3]
+    print(bw.shape)
+    df2 = reprocess_auto(df, "deform")
+    uv2 = reprocess_auto(uv, "uv")
+    cmap2 = reprocess_auto(cmap, "cmap")
+    bw2 = reprocess_auto(bw, "bw")
+    print(bw2.shape)
+    # print(df2)
+    print_img_auto(df2, "deform", fname="df_test/df.jpg")
+    print_img_auto(cmap2, "cmap", fname="df_test/cmap.jpg")
+    print_img_auto(uv2, "uv", fname="df_test/uv.jpg")
+    print_img_auto(bw2, "bw", fname="df_test/bw.jpg")
+
 if __name__ == "__main__":
     # test2()    
     # test1()
     # test5()
     # test4()
-    test3()
+    # test3()
+    test6()

@@ -10,6 +10,11 @@ import numpy as np
 import modules_liu
 from tutils import *
 
+from dataloader.bw_mapping import bw_mapping_tensor_batch
+from dataloader.bw2deform import deform2bw_tensor_batch
+
+from dataloader.data_process import reprocess_t2t_auto
+
 constrain_path = {
     ('threeD', 'normal'): (True, True, ''),
     ('threeD', 'depth'): (True, True, ''),
@@ -37,10 +42,7 @@ class UnwarpNet(nn.Module):
             self.mask_decoder = modules.Decoder_sim(downsample=4, out_channels=1)
             self.second_encoder = modules.Encoder_sim(downsample=4, in_channels=3 * 2 ** 6)
             self.uv_decoder = modules.Decoder_sim(downsample=4, out_channels=2)
-            self.albedo_decoder = modules.Decoder_sim(downsample=4, out_channels=1)
-            # self.conf_discriminator_enc = modules.Encoder_sim(downsample=4, in_channels=3)
-            # self.conf_discriminator_dec = modules.Decoder_sim(downsample=4, in_channels=3)
-            
+            self.albedo_decoder = modules.Decoder_sim(downsample=4, out_channels=1)            
         else:
             self.geo_encoder = modules.Encoder(downsample=6, in_channels=3)
             self.threeD_decoder = modules.Decoder(downsample=6, out_channels=3, combine_num=self.combine_num)
@@ -55,7 +57,6 @@ class UnwarpNet(nn.Module):
 
             #self.conf_discriminator_enc = modules.Encoder_sim(downsample=6, in_channels=3)
             #self.conf_discriminator_dec = modules.Decoder_sim(downsample=6, in_channels=3)
-
 
         if use_constrain:
             if self.constrain_configure['threeD', 'normal'][0] and self.constrain_configure['threeD', 'depth'][0]:
@@ -78,8 +79,7 @@ class UnwarpNet(nn.Module):
             self.localization = nn.Sequential(
                 nn.Conv2d(1024, 512, kernel_size=3),
                 nn.ReLU(True)
-            )
-            
+            )            
             # Regressor for the 3 * 2 affine matrix
             self.fc_loc = nn.Sequential(
                 nn.Linear(512*2*2, 512),
@@ -87,7 +87,6 @@ class UnwarpNet(nn.Module):
                 nn.Linear(512, 6*25),
                 nn.ReLU(True)
             )
-
             # Initialize the weights/bias with identity transformation
             # self.fc_loc[2].weight.data.fill_(0)
             # self.fc_loc[2].bias.data = torch.FloatTensor([1, 0, 0, 0, 1, 0])
@@ -111,45 +110,9 @@ class UnwarpNet(nn.Module):
         b, c, h, w = geo_feature.size()
         geo_feature_mask = geo_feature.mul(mask_map.expand(b, c, h, w))
         secvals, sec_encode = self.second_encoder(geo_feature_mask)
-        # for s in secvals:
-        #     print("--------------")
-        #     print(s.size())
-        # print("***************")
-        # print(sec_encode.size())
-        affs = self.localization(sec_encode) # (1024,4,4) => (512,2,2)
-        affs = affs.view(-1, 512*2*2)
-        print("-----------"*3)
-        print(affs.shape)
-        thetas = self.fc_loc(affs)
-        thetas = thetas.view(-1,2,3)  # => (bs*25, 2, 3) 
-        # grid = F.affine_grid(thetas, x.size())
-        # x = F.grid_sample(x, grid)      
-        
-        # -------------  grid -----------------
-        ys, xs = torch.meshgrid(torch.arange(5), torch.arange(5))
-        ys = torch.reshape(ys, (25,1))
-        xs = torch.reshape(xs, (25,1))
-        ones = torch.ones((25,1))
-        grid = torch.cat([ys, xs, ones], axis=-1)
-        grid = torch.unsqueeze(grid, 0)
-        grid = grid.expand(x.size(0), grid.size(1), grid.size(2))
-        grid = torch.reshape(grid, (x.size(0)*25, 3, 1))
-        # -------------- Affine ----------------
-        bs = x.size(0)
-        # rs = []
-        # for i in range(grid.size(0)):
-        #     r = torch.matmul(thetas[i,:,:], grid[i,:,:])
-        #     r = torch.unsqueeze(r, 0)
-        #     rs.append(r)
-        # result = torch.cat(rs) # (bs*25 ,2, 1)
-        result = torch.bmm(thetas, grid)
-        result = torch.reshape(result, (bs, 25, 2))
-        result = result.transpose(1,2)
-        result = torch.reshape(result, (bs, 2, 5, 5))
-        
-        # #####  return result
-        
-        # result = result.transpose(())
+
+        if self.use_deform:
+            df_map, _ = self.deform_decoder(secvals, sec_encode)
         
         uv_map, _ = self.uv_decoder(secvals, sec_encode)
         uv_map = nn.functional.tanh(uv_map)
@@ -160,6 +123,7 @@ class UnwarpNet(nn.Module):
         #alb_map, _ = self.albedo_decoder(albvals, alb_encode)
         alb_map, _ = self.albedo_decoder(secvals, sec_encode)
         alb_map = nn.functional.tanh(alb_map)
+      
         if self.use_constrain:
             nor_from_threeD, dep_from_threeD = self.threeD_to_nor2dep(threeD_map)
             nor_from_dep = self.dep2nor(dep_map)
@@ -168,10 +132,36 @@ class UnwarpNet(nn.Module):
             dep_from_threeD = nn.functional.tanh(dep_from_threeD)
             nor_from_dep = nn.functional.tanh(nor_from_dep)
             dep_from_nor = nn.functional.tanh(dep_from_nor)
-            return uv_map, threeD_map, nor_map, alb_map, dep_map, mask_map, \
-                    nor_from_threeD, dep_from_threeD, nor_from_dep, dep_from_nor, result
+            if self.use_deform:
+                return uv_map, threeD_map, nor_map, alb_map, dep_map, mask_map, \
+                    nor_from_threeD, dep_from_threeD, nor_from_dep, dep_from_nor, df_map # (STN)
+            else:
+                return uv_map, threeD_map, nor_map, alb_map, dep_map, mask_map, \
+                    nor_from_threeD, dep_from_threeD, nor_from_dep, dep_from_nor, None
         return uv_map, threeD_map, nor_map, alb_map, dep_map, mask_map, \
                 None, None, None, None, None
+
+
+class Cmap2Fianl(nn.Module):
+    def __init__(self):
+        super(self, Cmap2Fianl).__init__()
+        self.second_encoder = modules.Encoder(downsample=6, in_channels=3)  # 3*4
+        self.uv_decoder = modules.Decoder(downsample=6, out_channels=2, combine_num=0)
+        #self.albedo_decoder = modules.AlbedoDecoder(downsample=6, out_channels=1)
+        self.albedo_decoder = modules.Decoder(downsample=6, out_channels=1,combine_num=0)
+        self.deform_decoder = modules.Decoder(downsample=6, out_channels=2, combine_num=0)
+
+    def forward(self, x, ori):
+        xvals, x = self.second_encoder(x)
+        uv = self.uv_decoder(xvals, x)
+        albedo = self.albedo_decoder(xvals, x)
+        deform = self.deform_decoder(xvals, x)
+        
+        bw = deform2bw_tensor_batch(reprocess_t2t_auto(deform, "deform"))
+        dewarp_ori = bw_mapping_tensor_batch(reprocess_t2t_auto(ori, "ori"), bw)
+
+        return uv, albedo, deform, bw, dewarp_ori
+
 
 
 class Conf_Discriminator(nn.Module):

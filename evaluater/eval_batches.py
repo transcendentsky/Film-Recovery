@@ -91,9 +91,4 @@ if __name__ == "__main__":
     b = np.random.rand(300,300,3)
     aa = cv2.imread("medical/corgi1.jpg")
     bb = aa
-    # print(aa.shape ,type(aa))
-    # print(cal_CC(a, b))
-    # cal_PSNR(a, b)
-    # cal_MSE(a, b)
-    # cal_MAE(a, b)
     print(cal_SSIM(a, b, rgb=True))

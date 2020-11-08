@@ -8,6 +8,8 @@ from scipy.signal import convolve2d
 # from skimage.metrics import structural_similarity as ssim
 from ssim.ssimlib import SSIM as ssim
 import cv2
+from .eval_ssim import cal_tensor_ssim, cal_tensor_msssim
+import torch
 
 """
 Methods:
@@ -85,8 +87,22 @@ def cal_MSE(img1, img2):
 def cal_SSIM(img1, img2, rgb=True):
     # print("rgb ", rgb)
     # return ssim(img1,img1) ## for rgb , func in skimage, work bad
-    _ssim = ssim(img2)
+    # _ssim = ssim(img2)
+    # img1 = img1[np.newaxis, :,:,:].transpose(0,3,1,2)
+    # img2 = img2[np.newaxis, :,:,:].transpose(0,3,1,2)
+
+    return None
+
+def cal_2SSIM_batch(img1, img2):
+    img1 = img1.transpose(0,3,1,2)
+    img2 = img2.transpose(0,3,1,2)
+    img1tensor = torch.from_numpy(img1)
+    img2tensor = torch.from_numpy(img2)
     
+    ssim = cal_tensor_ssim(img1tensor, img2tensor)
+    msssim = cal_tensor_msssim(img1tensor, img2tensor)
+
+    return ssim, msssim
 
 if __name__ == "__main__":
     a = np.random.rand(300,300,3)

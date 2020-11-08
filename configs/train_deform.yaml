@@ -1,0 +1,10 @@
+# test
+TEST_LIST:
+  - AA
+  - BB
+  - CC
+
+CHECK_CODE: true # false
+None: ~ # None
+
+TEST: true

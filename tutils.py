@@ -28,7 +28,7 @@ def w(*s,end="\n", **kargs ):
 
 def d(*s,end="\n", **kargs ):
     if TUTILS_DEBUG:
-        print("[Trans Utils] ", s, kargs, end="")
+        print("[Trans Debug] ", s, kargs, end="")
         print("", end=end)
 
 def tfuncname(func):

@@ -94,6 +94,9 @@ def reprocess_np_auto(input_, img_type, process_type="qiyuan"):
     elif img_type in ["ori", "ab"]:
         x = (input_ + 1.) / 2. * 255.
 
+    elif img_type in ["deform"]:
+        x = input_ * 255.
+
     else:
         raise ValueError("[Trans BUG] reprocess_auto Error")
 
@@ -168,7 +171,24 @@ def process_auto(input_, img_type, process_type="qiyuan"):
     elif img_type in ["ori", "ab"]:
         x = input_  / 255. * 2. -1.
 
+    elif img_type in ["deform"]:
+        x = input_ /255.
+
     else:
-        raise ValueError("[Trans BUG] reprocess_auto Error")
+        raise ValueError("[Trans BUG] reprocess_auto Error, Got img_type=", img_type)
+
+    return x
+
+def reprocess_t2t_auto(input_, img_type, process_type="qiyuan"):
+    
+    if img_type in ["bw", "ori"]:
+        x = input_ / 255.0 * 2.0 - 1.0
+    elif img_type in ["deform"]:
+        x = input_ / 255.0
+    elif img_type in ["np"]:
+        x = input_.detach().cpu().numpy().tranpose(0,2,3,1)
+
+    else:
+        raise NotImplementedError("Error! Got type: {}".format(img_type))
 
     return x

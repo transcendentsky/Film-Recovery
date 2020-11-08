@@ -9,7 +9,7 @@ import cv2
 from scipy.interpolate import griddata
 from tutils import *
 from torch import nn
-from dataloader import data_process, print_img, uv2bw
+from dataloader import data_process, print_img, uv2bw, bw2deform
 
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "4"
@@ -57,7 +57,6 @@ class filmDataset_old(Dataset):
                torch.from_numpy(uv), \
                torch.from_numpy(background)
         # ori_1080 = data['ori_1080']
-
         elif self.load_mod == "uvbw":
             ### ----------- Generate BW map ---------------
             uv_2 = data_process.reprocess_auto(uv.transpose((1,2,0)), "uv")
@@ -84,6 +83,44 @@ class filmDataset_old(Dataset):
                 torch.from_numpy(bw), \
                torch.from_numpy(background), \
                torch.from_numpy(ori)
+        elif self.load_mod == "deform_cmap":
+            ###  ----------- Generate BW map ---------------
+            uv_2 = data_process.reprocess_auto(uv.transpose((1,2,0)), "uv")
+            mask = data_process.reprocess_auto(background.transpose((1,2,0)), "background")
+            bw = uv2bw.uv2backward_trans_3(uv_2, mask)
+            bw2 = data_process.process_auto(bw, "bw")
+            bw2 = bw2.transpose((2,0,1))
+            deform = bw2deform.bw2deform(bw)
+            deform = data_process.process_auto(deform, "deform")
+            deform = deform.transpose((2,0,1))
+
+            ### --------------------------------------------
+            return  torch.from_numpy(cmap), \
+                torch.from_numpy(uv), \
+                torch.from_numpy(deform), \
+                torch.from_numpy(bw2), \
+                torch.from_numpy(ori), \
+               torch.from_numpy(background)
+        
+        elif self.load_mod == "all_deform":
+            ###  ----------- Generate BW map ---------------
+            uv_2 = data_process.reprocess_auto(uv.transpose((1,2,0)), "uv")
+            mask = data_process.reprocess_auto(background.transpose((1,2,0)), "background")
+            bw = uv2bw.uv2backward_trans_3(uv_2, mask)
+            bw2 = data_process.process_auto(bw, "bw")
+            bw2 = bw2.transpose((2,0,1))
+            deform = bw2deform.bw2deform(bw)
+            deform = data_process.process_auto(deform, "deform")
+            deform = deform.transpose((2,0,1))
+            # -----------------------------------------
+            return torch.from_numpy(ori), \
+               torch.from_numpy(ab), \
+               torch.from_numpy(depth), \
+               torch.from_numpy(normal), \
+               torch.from_numpy(cmap), \
+               torch.from_numpy(uv), \
+               torch.from_numpy(deform), \
+               torch.from_numpy(background)
 
     def __len__(self):
         return len(self.npy_list)

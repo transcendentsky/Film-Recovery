@@ -4,6 +4,19 @@ import torch
 import torch.nn.functional as F
 from tutils import *
 
+
+
+def bw_mapping_tensor_batch(image, bw_map, device="cuda", imsize=256):
+    # Processed ori and Processed bw_map
+    
+    assert type(bw_map) is torch.tensor
+
+    bw_map = bw_map.transpose(1,2).transpose(2,3).transpose(1,2)
+    bw_map = bw_map / (imsize*1.0) * 2.0 - 1.0
+    output_tensor = F.grid_sample(input=image, grid=bw_map, align_corners=True)
+    return output_tensor
+    
+
 def bw_mapping_batch_3(image, bw_map, device="cuda", imsize=255):
     assert type(image) is np.ndarray, "Error Got {}".format(type(image))
     assert type(bw_map) is np.ndarray, "Error Got {}".format(type(bw_map))
