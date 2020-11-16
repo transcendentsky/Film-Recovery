@@ -1,3 +1,5 @@
-CT Film Recovery Network
+## CT Film Recovery Network
 
-dataset link: xxx
+code for CVPR 2021 submission
+
+dataset link: coming soon
