@@ -19,10 +19,11 @@ def deform2bw_np(deform):
 
 def deform2bw_tensor_batch(deform):
     imsize = deform.size(-1)
+    bs = deform.size(0)
     x = torch.arange(imsize)
     y = torch.arange(imsize)
     xi, yi = torch.meshgrid(x, y)
-    for i in deform.size[0]:
+    for i in range(bs):
         deform[i, 0, :, :] = deform[i, 0, :, :] + yi
         deform[i, 1, :, :] = deform[i, 1, :, :] + xi
     return deform

@@ -39,6 +39,7 @@ def uv2backward_batch(b_uv, b_mask, imsize=256):
 
 def uv2backward_trans_2(uv, mask, imsize=256):
     w("There is some mistakes in uv2backward_trans_2, please use uv2backward_trans_3!")
+    raise TypeError("not work")
     """
     Not use this one
     """

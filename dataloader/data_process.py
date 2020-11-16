@@ -2,11 +2,11 @@ import numpy as np
 import torch
 from tutils import *
 
-def reprocess_auto_batch(input_, img_type):
-    if type(input_) is torch.Tensor:
-        input_np = input_.detach().cpu().numpy().transpose((0,2,3,1))
-    elif type(input_) is np.ndarray:
-        input_np = input_
+def reprocess_auto_batch(_input, img_type):
+    if type(_input) is torch.Tensor:
+        input_np = _input.detach().cpu().numpy().transpose((0,2,3,1))
+    elif type(_input) is np.ndarray:
+        input_np = _input
     else:
         raise TypeError("Wrong type: Got {}".format(type(img)))
     
@@ -16,19 +16,19 @@ def reprocess_auto_batch(input_, img_type):
         output[i,:,:,:] = reprocess_np_auto(input_np[i,:,:,:], img_type)
     return output
 
-def reprocess_auto(input_, img_type):
-    p("[*] Reprocess ", img_type, input_.shape)
-    if type(input_) is torch.Tensor:
-        img = input_.detach().cpu().numpy().transpose((1,2,0))
-        assert img.shape[0] > 3, "Dims Error!! the expected Dims is (256?, 256?, n) but GOT {}".format(input_.shape)
+def reprocess_auto(_input, img_type):
+    p("[*] Reprocess ", img_type, _input.shape)
+    if type(_input) is torch.Tensor:
+        img = _input.detach().cpu().numpy().transpose((1,2,0))
+        assert img.shape[0] > 3, "Dims Error!! the expected Dims is (256?, 256?, n) but GOT {}".format(_input.shape)
         return reprocess_np_auto(img, img_type)
-    elif type(input_) is np.ndarray:
-        assert input_.shape[0] > 3, "Dims Error!! the expected Dims is (256?, 256?, n) but GOT {}".format(input_.shape)
-        return reprocess_np_auto(input_, img_type)
+    elif type(_input) is np.ndarray:
+        assert _input.shape[0] > 3, "Dims Error!! the expected Dims is (256?, 256?, n) but GOT {}".format(_input.shape)
+        return reprocess_np_auto(_input, img_type)
     else:
         raise TypeError("Wrong type: Got {}".format(type(img)))
 
-def reprocess_np_auto(input_, img_type, process_type="qiyuan"):
+def reprocess_np_auto(_input, img_type, process_type="qiyuan"):
     """
     Reprocess for Maps
         depth, normal, cmap
@@ -37,9 +37,9 @@ def reprocess_np_auto(input_, img_type, process_type="qiyuan"):
 
     Process type: liuli / qiyuan
     """
-    assert type(input_) is np.ndarray, "Trans TypeError!! the expected type is np.ndarray but GOT {}".format(type(input_))
-    assert input_.shape[0] > 3, "Dims Error!! the expected Dims is (256?, 256?, n) but GOT {}".format(input_.shape)
-    assert np.ndim(input_) <= 3, "np.ndim Error"
+    assert type(_input) is np.ndarray, "Trans TypeError!! the expected type is np.ndarray but GOT {}".format(type(_input))
+    assert _input.shape[0] > 3, "Dims Error!! the expected Dims is (256?, 256?, n) but GOT {}".format(_input.shape)
+    assert np.ndim(_input) <= 3, "np.ndim Error"
 
     if process_type == "liuli":
         if img_type == "normal":
@@ -64,46 +64,56 @@ def reprocess_np_auto(input_, img_type, process_type="qiyuan"):
 
     if img_type in ["normal", "cmap"]:
         ###  Recover from STD and MEAN
-        x = np.zeros(input_.shape)
+        x = np.zeros(_input.shape)
         assert x.shape[2] == 3, "np.shape Error, Got {}".format(x.shape)
-        x[:, :, 0] = input_[:, :, 0] * std[0] + mean[0]
-        x[:, :, 1] = input_[:, :, 1] * std[1] + mean[1]
-        x[:, :, 2] = input_[:, :, 2] * std[2] + mean[2]
+        x[:, :, 0] = _input[:, :, 0] * std[0] + mean[0]
+        x[:, :, 1] = _input[:, :, 1] * std[1] + mean[1]
+        x[:, :, 2] = _input[:, :, 2] * std[2] + mean[2]
 
     elif img_type in ["depth"]:
-        if np.ndim(input_)==3:  # (256, 256, 1)
-            x = input_[:, :, 0]
+        if np.ndim(_input)==3:  # (256, 256, 1)
+            x = _input[:, :, 0]
             x[:, :] = x[:, :] * std[0] + mean[0]
-        elif np.ndim(input_)==2:  
-            x = np.zeros(input_.shape)
-            x[:, :] = input_[:, :] * std[0] + mean[0]
+        elif np.ndim(_input)==2:  
+            x = np.zeros(_input.shape)
+            x[:, :] = _input[:, :] * std[0] + mean[0]
             
 
     elif img_type in ["bw", "uv", "background"]:
         ### Recover from [-1, 1] to  [0, 1]
         if img_type == "uv":
-            x = (input_ + 1.0) / 2.0
+            x = (_input + 1.0) / 2.0
         elif img_type == "bw":
-            x = (input_ + 1.0) / 2.0 * 255.0
+            x = (_input + 1.0) / 2.0 * 255.0
         elif img_type == "background":
-            if np.ndim(input_)==3:  # (256, 256, 1)
-                x = input_
-            elif np.ndim(input_)==2:  
-                x = input_[:, :, np.newaxis]
+            if np.ndim(_input)==3:  # (256, 256, 1)
+                x = _input
+            elif np.ndim(_input)==2:  
+                x = _input[:, :, np.newaxis]
     
     elif img_type in ["ori", "ab"]:
-        x = (input_ + 1.) / 2. * 255.
+        x = (_input + 1.) / 2. * 255.
 
     elif img_type in ["deform"]:
-        x = input_ * 255.
+        x = _input * 255.
 
     else:
         raise ValueError("[Trans BUG] reprocess_auto Error")
 
     return x
 
+def process_to_tensor(_input):
+    if np.ndim(_input) == 3 :
+        return torch.from_numpy(_input.transpose(2,0,1))
+    elif np.ndim(_input) == 4:
+        return torch.from_numpy(_input.transpose(0,3,1,2))
+    else:
+        raise ValueError("Got ndim {}".format(np.ndim(_input)))
 
-def process_auto(input_, img_type, process_type="qiyuan"): 
+def process_tensor_batch(_input):
+    assert np.ndim(_input) == 4
+
+def process_auto(_input, img_type, process_type="qiyuan"): 
     """
     Reprocess for Maps
         depth, normal, cmap
@@ -112,11 +122,11 @@ def process_auto(input_, img_type, process_type="qiyuan"):
 
     Process type: liuli / qiyuan
     """
-    assert type(input_) is np.ndarray, "Trans TypeError!! the expected type is np.ndarray but GOT {}".format(type(input_))
-    assert input_.shape[0] > 3, "Dims Error!! the expected Dims is (256?, 256?, n) but GOT {}".format(input_.shape)
-    assert np.ndim(input_) <= 3, "np.ndim Error"
+    assert type(_input) is np.ndarray, "Trans TypeError!! the expected type is np.ndarray but GOT {}".format(type(_input))
+    assert _input.shape[0] > 3, "Dims Error!! the expected Dims is (256?, 256?, n) but GOT {}".format(_input.shape)
+    assert np.ndim(_input) <= 3, "np.ndim Error"
 
-    input_ = input_.astype(np.float32)
+    _input = _input.astype(np.float32)
 
     if process_type == "liuli":
         if img_type == "normal":
@@ -143,50 +153,51 @@ def process_auto(input_, img_type, process_type="qiyuan"):
     if img_type in ["depth", "normal", "cmap"]:  # original value is [0, 1]
 
         ###  Recover from STD and MEAN
-        x = np.zeros(input_.shape)
+        x = np.zeros(_input.shape)
         assert x.shape[2] == 3, "np.shape Error, Got {}".format(x.shape)
-        if np.ndim(input_)==3:           # cmap, normal
-            x[:, :, 0] = (input_[:, :, 0] - mean[0]) / std[0]
-            x[:, :, 1] = (input_[:, :, 1] - mean[1]) / std[1]
-            x[:, :, 2] = (input_[:, :, 2] - mean[2]) / std[2]
+        if np.ndim(_input)==3:           # cmap, normal
+            x[:, :, 0] = (_input[:, :, 0] - mean[0]) / std[0]
+            x[:, :, 1] = (_input[:, :, 1] - mean[1]) / std[1]
+            x[:, :, 2] = (_input[:, :, 2] - mean[2]) / std[2]
 
     elif img_type in ["depth"]:
-        if np.ndim(input_)==3:  # (256, 256, 1)
-            x = np.zeros(input_.shape)
-            x[:, :, 0] = (input_[:, :, 0] - mean[0]) / std[0]
-        elif np.ndim(input_)==2:  
-            x = np.zeros(input_.shape)
-            x[:, :] = (input_[:, :] - mean[0]) / std[0]
+        if np.ndim(_input)==3:  # (256, 256, 1)
+            x = np.zeros(_input.shape)
+            x[:, :, 0] = (_input[:, :, 0] - mean[0]) / std[0]
+        elif np.ndim(_input)==2:  
+            x = np.zeros(_input.shape)
+            x[:, :] = (_input[:, :] - mean[0]) / std[0]
             x = x[:, :, np.newaxis]
 
     elif img_type in ["bw", "uv", "background"]:
         ### Recover from [-1, 1] to  [0, 1]
         if img_type == "uv":
-            x = input_ * 2.0 - 1.0
+            x = _input * 2.0 - 1.0
         elif img_type == "bw":
-            x = input_ / 255.0 * 2.0 - 1.0
+            x = _input / 255.0 * 2.0 - 1.0
         elif img_type == "background":
-            x = input_
+            x = _input
 
     elif img_type in ["ori", "ab"]:
-        x = input_  / 255. * 2. -1.
+        x = _input  / 255. * 2. -1.
 
     elif img_type in ["deform"]:
-        x = input_ /255.
+        x = _input /255.
 
+    
     else:
         raise ValueError("[Trans BUG] reprocess_auto Error, Got img_type=", img_type)
 
     return x
 
-def reprocess_t2t_auto(input_, img_type, process_type="qiyuan"):
+def reprocess_t2t_auto(_input, img_type, process_type="qiyuan"):
     
     if img_type in ["bw", "ori"]:
-        x = input_ / 255.0 * 2.0 - 1.0
+        x = _input / 255.0 * 2.0 - 1.0
     elif img_type in ["deform"]:
-        x = input_ / 255.0
+        x = _input / 255.0
     elif img_type in ["np"]:
-        x = input_.detach().cpu().numpy().tranpose(0,2,3,1)
+        x = _input.detach().cpu().numpy().tranpose(0,2,3,1)
 
     else:
         raise NotImplementedError("Error! Got type: {}".format(img_type))

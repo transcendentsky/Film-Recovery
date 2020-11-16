@@ -97,7 +97,7 @@ def write_data(image_dir, write_dir, input_size):
             # bmap = preprocessEXR(bmap[:, :, 0:2]*5-1, shape=input_size, resize=True)
             # depth0 = np.expand_dims(depth[:,:,0], axis=2)
             depth = preprocessEXR(preprocess(depth, mean=[0.316, 0.316, 0.316], std=[0.309, 0.309, 0.309]), shape=input_size, resize=True)
-            depth = np.expand_dims(depth[0,:,:], axis=0)
+            depth = np.expand_dims(depth[0,:,:], axis=0) 
             normal = preprocessEXR(preprocess(nos, mean=[0.584, 0.294, 0.300], std=[0.483, 0.251, 0.256]), shape=input_size, resize=True)
             cmap = preprocessEXR(preprocess(cmap, mean=[0.100, 0.326, 0.289], std=[0.096, 0.332, 0.298]), shape=input_size, resize=True)
             uv = preprocessEXR(uv[:, :, 1:] * 2 - 1, shape=input_size, resize=True)

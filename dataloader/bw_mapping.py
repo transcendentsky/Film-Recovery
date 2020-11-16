@@ -17,6 +17,9 @@ def bw_mapping_tensor_batch(image, bw_map, device="cuda", imsize=256):
     return output_tensor
     
 
+def bw_mapping_single_3(image, bw_map):
+    return bw_mapping_batch_3(image[np.newaxis,:,:,:], bw_map[np.newaxis,:,:,:])[0,:,:,:]
+
 def bw_mapping_batch_3(image, bw_map, device="cuda", imsize=255):
     assert type(image) is np.ndarray, "Error Got {}".format(type(image))
     assert type(bw_map) is np.ndarray, "Error Got {}".format(type(bw_map))
@@ -31,36 +34,6 @@ def bw_mapping_batch_3(image, bw_map, device="cuda", imsize=255):
     ###  torch -> np
     output = output_tensor.detach().cpu().numpy().transpose((0,2,3,1))
     return output
-
-def bw_mapping_batch_2(image, bw_map, device="cuda", imsize=255):
-    ### Trained by 
-    w(" *bw_mapping_batch_2* This function is used with uv2bw_trans_2, which is wrong somewhere! ")
-    assert type(image) is np.ndarray, "Error Got {}".format(type(image))
-    assert type(bw_map) is np.ndarray, "Error Got {}".format(type(bw_map))
-    assert bw_map.shape[3] == 2, "shape Error, Got {}".format(bw_map.shape)
-
-    image = image.transpose((0, 3, 1, 2))   # (2, 1)  ????
-    image_tensor = torch.from_numpy(image).type(torch.float32).to(device)
-    
-    bw_map[:, :, :, 0] = 255 - bw_map[:, :, :, 0]
-    bw_map[:, :, :, 1] = 255 - bw_map[:, :, :, 1]
-
-    bw_map = bw_map[:, :, :, ::-1]
-    ## Here is changed
-    bw_map = (1.0 - bw_map / (imsize*1.0) )* 2.0 - 1.0  # (2, 1)  ????  .transpose((0, 2, 1, 3))
-    bw_map_tensor = torch.from_numpy(bw_map).type(torch.float32).to(device)
-    output_tensor = F.grid_sample(input=image_tensor, grid=bw_map_tensor, align_corners=True)
-    ###  torch -> np
-    output = output_tensor.detach().cpu().numpy().transpose((0,3,2,1))
-
-    output2 = np.zeros_like(output)
-    assert output.shape[1] == 256
-    h = 256
-    for i in range(h):
-        for j in range(h):
-            output2[: ,i, j, :] = output[:, h-i-1, h-j-1, :]
-    return output2
-
 
 def bw_mapping_one(bw_map, image, device="cuda"):
     image = torch.unsqueeze(image, 0)  # [1, 3, 256, 256]

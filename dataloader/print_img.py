@@ -14,7 +14,7 @@ def print_img_with_reprocess(img, img_type, fname=None):
 
 
 def print_img_auto(img, img_type, is_gt=True, fname=None):
-    print("[Warning] Pause to use print img, "); return
+    # print("[Warning] Pause to use print img, "); return
     if type(img) is torch.Tensor:
         print_img_tensor(img, img_type, is_gt, fname)
     elif type(img) is np.ndarray:
