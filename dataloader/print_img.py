@@ -9,6 +9,7 @@ def print_img_with_reprocess(img, img_type, fname=None):
     if type(img) is torch.Tensor:
         img = img.transpose(0,1).transpose(1,2)
         img = img.detach().cpu().numpy()
+    assert np.ndim(img) <=3 
     img = reprocess_auto(img, img_type=img_type)
     print_img_np(img, img_type, fname=fname)
 
@@ -35,13 +36,13 @@ def print_img_np(img, img_type, is_gt=True, fname=None):
         uv, bw, background
         ori, ab
     """
-    assert np.ndim(img) == 3, "np.ndim Error, Got shape{}".format(img.shape)
+    #assert np.ndim(img) == 3, "np.ndim Error, Got shape{}".format(img.shape)
 
     if img_type == "uv":
         print_uv(img, is_gt=is_gt, fname=fname)
     elif img_type == "bw":
         print_bw(img, is_gt, fname=fname)
-    elif img_type == "background":
+    elif img_type in ["background", "bg"]:
         print_back(img, is_gt, fname=fname)
     elif img_type == "cmap":
         print_cmap(img, is_gt, fname=fname)
@@ -99,8 +100,9 @@ def print_bw(bw, is_gt, epoch=0, fname=None):
     assert np.max(bw) > 1, "Value Error??? all vallues <= 1"
     assert np.ndim(bw) == 3, "np.ndim Error"
     # print("print_bw: bw.shape", bw.shape)
+    w,h,c = bw.shape
     bw = bw.astype(np.uint8)
-    bb = np.zeros((256,256,1))
+    bb = np.zeros((w,h,1))
     bw = np.concatenate([bw, bb], axis=2)
     fname = tfilename(fname) if fname is not None else tfilename("imgshow",epoch_text,"bw_"+subtitle+"/bw_"+generate_name()+".jpg")
     cv2.imwrite(fname, bw)
@@ -118,12 +120,13 @@ def print_bw_uv(bw, is_gt, epoch, fname=None):
 def print_uv(uv, is_gt, epoch=0, fname=None): # [0,1]
     subtitle = "gt" if is_gt else "pred"
     epoch_text = "epoch{}".format(epoch)
+    w,h,c = uv.shape
     uv = uv*255
     uv = uv.astype(np.uint8)
-    bb = np.zeros((256,256,1))
+    bb = np.zeros((w,h,1))
     uv = np.concatenate([uv, bb], axis=2)
     fname = tfilename(fname) if fname is not None else tfilename("imgshow",epoch_text,"uv_"+subtitle+"/uv_"+generate_name()+".jpg")
-    d("print_uv func: ")
+    #d("print_uv func: ")
     print(np.sum(uv[:,:,2]))
     cv2.imwrite(fname, uv)
 
@@ -140,7 +143,8 @@ def print_deform(df, is_gt, epoch=0, fname=None):
     epoch_text = "epoch{}".format(epoch)
     df = df / 2.0 + 255. / 2.
     df = df.astype(np.uint8)
-    bb = np.zeros((256,256,1))
+    w,h,c = df.shape    
+    bb = np.zeros((w,h,1))
     df = np.concatenate([df, bb], axis=2)
     fname = tfilename(fname) if fname is not None else tfilename("imgshow",epoch_text,"df_"+subtitle+"/df_"+generate_name()+".jpg")
     cv2.imwrite(fname, df)
@@ -183,7 +187,8 @@ def print_deform_from_bw(bw, is_gt, epoch=0, fname=None):
     assert np.ndim(bw) == 3, "np.ndim Error"
     # print("print_bw: bw.shape", bw.shape)
     bw = bw.astype(np.uint8)
-    bb = np.zeros((256,256,1))
+    w,h,c = bw.shape
+    bb = np.zeros((w,h,1))
     bw = np.concatenate([bw, bb], axis=2)
     fname = tfilename(fname) if fname is not None else tfilename("imgshow",epoch_text,"bw_"+subtitle+"/bw_"+generate_name()+".jpg")
     cv2.imwrite(fname, bw)

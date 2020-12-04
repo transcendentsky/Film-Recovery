@@ -49,35 +49,35 @@ Constrain Path:
 import torch
 import torch.nn as nn
 import models
-import train_configs
+from . import train_configs
 from torch.utils.data import Dataset, DataLoader
-from load_data_npy import filmDataset
+# from load_data_npy import filmDataset
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
-from cal_times import CallingCounter
+# from cal_times import CallingCounter
 import time
 import os
 # import metrics
 import numpy as np
-from write_image import *
+# from write_image import *
 from tensorboardX import SummaryWriter
-import models2
-from tutils import *
-import load_data_npy
+import models.misc.models2 as models2
+from utils.tutils import *
+# import load_data_npy
 from dataloader.load_data_2 import filmDataset_old
 from dataloader.uv2bw import uv2bmap_in_tensor
 from dataloader.print_img import print_img_with_reprocess
-from config import *
+from utils.config import *
 from dataloader.data_process import reprocess_auto_batch
 from dataloader.uv2bw import uv2backward_batch
 from evaluater.eval_ones import cal_PSNR, cal_MSE
 from evaluater.eval_batches import uvbw_loss_np_batch
 from dataloader.print_img import print_img_auto
-from dataloader.bw_mapping import bw_mapping_batch_2, bw_mapping_batch_3
+from dataloader.bw_mapping import bw_mapping_batch_3
 
 from evaluater.eval_ones import cal_2SSIM_batch
 from evaluater.eval_batches import cal_metrix_np_batch
-
+from dataloader.myblur import blur_bw_np, resize_albedo_np
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 # os.environ["CUDA_VISIBLE_DEVICES"] = "5, 0, 1, 2"
@@ -171,6 +171,8 @@ def test(args, model, test_loader, optimizer, criterion, \
     m1_1, m1_2, m2_1, m2_2 = 0,0,0,0
     psnr5, psnr6 = 0,0
 
+    ssimblur, mssimblur = 0,0
+
     for batch_idx, data in enumerate(test_loader):
         # if batch_idx >= 100:
             # break
@@ -193,6 +195,8 @@ def test(args, model, test_loader, optimizer, criterion, \
         mask_np = reprocess_auto_batch(mask_map_gt, "background")
         bw_uv = uv2backward_batch(uv_np, mask_np)
         ori = reprocess_auto_batch(ori_map_gt, "ori")
+
+        bw_np_blur = blur_bw_np(bw_np[0,:,:,:], bw_np[0,:,:,:])[np.newaxis, :,:,:]
 
         count += uv_np.shape[0]*1.0
         # ----------  MSE  -------------------
@@ -240,7 +244,14 @@ def test(args, model, test_loader, optimizer, criterion, \
         bw_from_uv = uv2backward_batch(uv_np, mask_np)
         ori_uv = bw_mapping_batch_3(ori, bw_from_uv)
         ori_bw = bw_mapping_batch_3(ori, bw_np)
+        ori_bw_blur = bw_mapping_batch_3(ori, bw_np_blur)
         ori_bw_gt = bw_mapping_batch_3(ori, bw_gt_np)
+
+        ssim, msssim = cal_2SSIM_batch(ori_bw_blur, ori_bw_gt)
+        ssimblur += ssim
+        mssimblur += msssim
+        writer.add_scalar('ssim/ori_bw_blur' , ssimblur/count,  global_step=batch_idx)
+        writer.add_scalar('msssim/ori_bw_blur' , mssimblur/count,  global_step=batch_idx)
 
         ssim, msssim = cal_2SSIM_batch(bw_from_uv, bw_gt_np)
         ssim1 += ssim
@@ -299,22 +310,22 @@ def test(args, model, test_loader, optimizer, criterion, \
         writer.add_scalar('mssim/ori_bw_loss', msssim4/count, global_step=batch_idx)
         
         # ------------  Write Imgs --------------------
-        dewarp_ori_bw = bw_mapping_batch_3(ori, bw_np, device="cuda")
-        dewarp_ori_uv = bw_mapping_batch_3(ori, bw_uv, device="cuda")
-        dewarp_ori_gt = bw_mapping_batch_3(ori, bw_gt_np, device="cuda")
-        fname_bw = tfilename(output_dir, "test_uvbw/batch_{}/ori_bw.jpg".format(batch_idx))
-        fname_uv = tfilename(output_dir, "test_uvbw/batch_{}/ori_uv.jpg".format(batch_idx))
-        fname_origt = tfilename(output_dir, "test_uvbw/batch_{}/ori_dewarp_gt.jpg".format(batch_idx))
-        print_img_auto(dewarp_ori_bw[0,:,:,:], img_type="ori", is_gt=False, fname=fname_bw)
-        print_img_auto(dewarp_ori_uv[0,:,:,:], img_type="ori", is_gt=False, fname=fname_uv)
-        print_img_auto(dewarp_ori_gt[0,:,:,:], img_type="ori", is_gt=False, fname=fname_origt)
-        print_img_auto(uv_np[0,:,:,:],    "uv", is_gt=False, fname=tfilename(output_dir, "test_uvbw/batch_{}/uv_pred.jpg".format(batch_idx)))
-        print_img_auto(uv_gt_np[0,:,:,:], "uv", is_gt=False, fname=tfilename(output_dir, "test_uvbw/batch_{}/uv_gt.jpg".format(batch_idx)))
-        print_img_auto(bw_np[0,:,:,:],    "bw", is_gt=False, fname=tfilename(output_dir, "test_uvbw/batch_{}/bw_pred.jpg".format(batch_idx)))
-        print_img_auto(bw_gt_np[0,:,:,:], "bw", is_gt=False, fname=tfilename(output_dir, "test_uvbw/batch_{}/bw_gt.jpg".format(batch_idx)))
-        print_img_auto(bw_uv[0,:,:,:],    "bw", is_gt=False, fname=tfilename(output_dir, "test_uvbw/batch_{}/bw_uv_pred.jpg".format(batch_idx)))
-        print_img_auto(mask_np[0,:,:,:],  "background", is_gt=False, fname=tfilename(output_dir, "test_uvbw/batch_{}/bg_gt.jpg".format(batch_idx)))
-        print_img_auto(ori[0,:,:,:],      "ori", is_gt=False, fname=tfilename(output_dir, "test_uvbw/batch_{}/ori_gt.jpg".format(batch_idx)))
+        # dewarp_ori_bw = bw_mapping_batch_3(ori, bw_np, device="cuda")
+        # dewarp_ori_uv = bw_mapping_batch_3(ori, bw_uv, device="cuda")
+        # dewarp_ori_gt = bw_mapping_batch_3(ori, bw_gt_np, device="cuda")
+        # fname_bw = tfilename(output_dir, "test_uvbw/batch_{}/ori_bw.jpg".format(batch_idx))
+        # fname_uv = tfilename(output_dir, "test_uvbw/batch_{}/ori_uv.jpg".format(batch_idx))
+        # fname_origt = tfilename(output_dir, "test_uvbw/batch_{}/ori_dewarp_gt.jpg".format(batch_idx))
+        # print_img_auto(dewarp_ori_bw[0,:,:,:], img_type="ori", is_gt=False, fname=fname_bw)
+        # print_img_auto(dewarp_ori_uv[0,:,:,:], img_type="ori", is_gt=False, fname=fname_uv)
+        # print_img_auto(dewarp_ori_gt[0,:,:,:], img_type="ori", is_gt=False, fname=fname_origt)
+        # print_img_auto(uv_np[0,:,:,:],    "uv", is_gt=False, fname=tfilename(output_dir, "test_uvbw/batch_{}/uv_pred.jpg".format(batch_idx)))
+        # print_img_auto(uv_gt_np[0,:,:,:], "uv", is_gt=False, fname=tfilename(output_dir, "test_uvbw/batch_{}/uv_gt.jpg".format(batch_idx)))
+        # print_img_auto(bw_np[0,:,:,:],    "bw", is_gt=False, fname=tfilename(output_dir, "test_uvbw/batch_{}/bw_pred.jpg".format(batch_idx)))
+        # print_img_auto(bw_gt_np[0,:,:,:], "bw", is_gt=False, fname=tfilename(output_dir, "test_uvbw/batch_{}/bw_gt.jpg".format(batch_idx)))
+        # print_img_auto(bw_uv[0,:,:,:],    "bw", is_gt=False, fname=tfilename(output_dir, "test_uvbw/batch_{}/bw_uv_pred.jpg".format(batch_idx)))
+        # print_img_auto(mask_np[0,:,:,:],  "background", is_gt=False, fname=tfilename(output_dir, "test_uvbw/batch_{}/bg_gt.jpg".format(batch_idx)))
+        # print_img_auto(ori[0,:,:,:],      "ori", is_gt=False, fname=tfilename(output_dir, "test_uvbw/batch_{}/ori_gt.jpg".format(batch_idx)))
 
         # Write bw diffs
         diff1 = bw_np[0,:,:,:] - bw_gt_np[0,:,:,:]
@@ -398,10 +409,10 @@ def test(args, model, test_loader, optimizer, criterion, \
         writer.add_scalar("bw_all_total/std_1", s1, global_step=batch_idx)
         writer.add_scalar("bw_all_total/std_2", s2, global_step=batch_idx)
         
-        print_img_auto(diff_p1, "bw", fname=tfilename(output_dir, "test_uvbw/batch_{}/diff_bw.jpg".format(batch_idx)))
-        print_img_auto(diff_p2, "bw", fname=tfilename(output_dir, "test_uvbw/batch_{}/diff_bwuv.jpg".format(batch_idx)))
-        print_img_auto(diff1, "bw", fname=tfilename(output_dir, "test_uvbw/batch_{}/diff_m_bw.jpg".format(batch_idx)))
-        print_img_auto(diff2, "bw", fname=tfilename(output_dir, "test_uvbw/batch_{}/diff_m_bwuv.jpg".format(batch_idx)))
+        # print_img_auto(diff_p1, "bw", fname=tfilename(output_dir, "test_uvbw/batch_{}/diff_bw.jpg".format(batch_idx)))
+        # print_img_auto(diff_p2, "bw", fname=tfilename(output_dir, "test_uvbw/batch_{}/diff_bwuv.jpg".format(batch_idx)))
+        # print_img_auto(diff1, "bw", fname=tfilename(output_dir, "test_uvbw/batch_{}/diff_m_bw.jpg".format(batch_idx)))
+        # print_img_auto(diff2, "bw", fname=tfilename(output_dir, "test_uvbw/batch_{}/diff_m_bwuv.jpg".format(batch_idx)))
         # Write diffs Ori
         # diff1 = np.abs(dewarp_ori_bw[0,:,:,:] - dewarp_ori_gt[0,:,:,:])
         # diff2 = np.abs(dewarp_ori_uv[0,:,:,:] - dewarp_ori_gt[0,:,:,:])

@@ -4,6 +4,8 @@ import numpy as np
 
 
 def blur_bw_np(bm, ori):
+    assert np.ndim(bm) == 3
+    assert np.ndim(ori) == 3
     print("bw shape:", bm.shape)
     w,h = ori.shape[0], ori.shape[1]
     bm0=cv2.blur(bm[:,:,0],(3,3))
@@ -41,3 +43,26 @@ def resize_albedo_np(ori, img, ab):
     ab_large = ori_gray[:,:,np.newaxis] + diff
 
     return ab_large, diff, ori_gray[:,:,np.newaxis] , img_gray[:,:,np.newaxis] 
+
+def resize_albedo_np2(ori, img, ab):
+    assert img.shape == (256,256,3) , "Error, but got {}".format(img.shape)
+    assert ab.shape  == (256,256,1), "Error, but got {}".format(ab.shape)
+
+    w,h = ori.shape[0], ori.shape[1]
+    ori_gray = cv2.cvtColor(ori, cv2.COLOR_BGR2GRAY)
+    img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    
+    ab_large = cv2.resize(ab, (h,w))
+    diff = ab_large - ori_gray
+    
+    diff = cv2.blur(diff, (20,20))  # Or kernel of (3,3)
+    
+    ab_large = ori_gray + diff
+    ab_large = ab_large[:,:,np.newaxis]
+    
+    assert ab_large.shape[2] == 1
+    return ab_large, diff[:,:,np.newaxis], ori_gray[:,:,np.newaxis] , img_gray[:,:,np.newaxis]
+    
+    
+    
+    

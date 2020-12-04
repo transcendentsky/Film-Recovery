@@ -7,11 +7,7 @@ from torch.utils.data import Dataset, DataLoader
 import time
 import cv2
 
-
-os.environ["CUDA_VISIBLE_DEVICES"] = "5"
-
 ori_image_dir = 'data_2000/Mesh_Film/npy/'
-
 
 EPOCH = 1
 test_BATCH_SIZE = 100

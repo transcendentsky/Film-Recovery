@@ -5,9 +5,9 @@ Desc: This script defines the entire networks in dewarping films.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import modules
+from . import modules
 import numpy as np
-import modules_liu
+from . import  modules_liu
 from tutils import *
 
 constrain_path = {

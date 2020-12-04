@@ -11,7 +11,7 @@ from .eval_ones import cal_CC, cal_PSNR, cal_SSIM, cal_MSE, cal_MAE
 from dataloader.uv2bw import uv2backward_trans_2, uv2backward_trans_3
 import torch
 from dataloader.uv2bw import uv2backward_batch_with_reprocess, uv2backward_batch
-from dataloader.bw_mapping import bw_mapping_batch_2, bw_mapping_batch_3
+from dataloader.bw_mapping import bw_mapping_batch_3
 from dataloader.data_process import reprocess_auto, reprocess_auto_batch
 from tutils import *
 

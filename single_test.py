@@ -1,13 +1,12 @@
 import torch.nn as nn
 import unwarp_models
-import train_configs
 from torch.utils.data import Dataset, DataLoader
 # from load_data_npy import filmDataset, single_test
-
+from scripts.misc import train_configs
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 import time
-import models
+import models.misc.models as models
 import os
 import numpy as np
 from dataloader.bw2deform import deform2bw_tensor_batch
@@ -18,12 +17,9 @@ from dataloader.data_process import reprocess_auto_batch, reprocess_t2t_auto, re
 from dataloader.bw_mapping import bw_mapping_batch_3, bw_mapping_tensor_batch, bw_mapping_single_3
 from dataloader.uv2bw import uv2backward_trans_3
 from dataloader.print_img import print_img_auto
-from dataloader.myblur import resize_albedo_np, blur_bw_np
+from dataloader.myblur import resize_albedo_np, blur_bw_np, resize_albedo_np2
 
-from tutils import *
-
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+from utils.tutils import *
 
 constrain_path = {
     ('threeD', 'normal'): (False, True, ''),
@@ -65,7 +61,7 @@ def test_single(model, imgpath, writer):
     dewarp_np = bw_mapping_single_3(img, bw_np)
     
     bw_large = blur_bw_np(bw_np, img_ori)
-    alb_large, diff, ori_gray, img_gray = resize_albedo_np(img_ori, img, alb_np)
+    alb_large, diff, ori_gray, img_gray = resize_albedo_np2(img_ori, img, alb_np)
 
     dewarp_ab_large = bw_mapping_single_3(alb_large, bw_large)
     dewarp_large    = bw_mapping_single_3(img_ori  , bw_large)

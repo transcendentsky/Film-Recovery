@@ -51,7 +51,7 @@ def tt():
 
 def time_now():
     tt()
-    return time.strftime("%Y%m%d-%H%M%S", time.localtime())
+    return time.strftime("%Y%m%d-%H%M%S-", time.localtime())
 
 def generate_random_str(n):
     tt()
@@ -112,6 +112,11 @@ def ttsave(state, path, configs=None):
             f.write(config_js)
     torch.save(state, tfilename(path, "model.pkl"))
     
+def add_total(tuple1, tuple2):
+    l = list()
+    for i, item in enumerate(tuple1):
+        l.append(tuple1[i] + tuple2[i])
+    return tuple(l)
 
 if __name__ == "__main__":
     # tt()

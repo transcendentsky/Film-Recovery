@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import modules
+from models.misc import modules
 
 constrain_path = {
     ('threeD', 'normal'): (True, True, ''),

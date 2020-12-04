@@ -79,13 +79,13 @@ def reprocess_np_auto(_input, img_type, process_type="qiyuan"):
             x[:, :] = _input[:, :] * std[0] + mean[0]
             
 
-    elif img_type in ["bw", "uv", "background"]:
+    elif img_type in ["bw", "uv", "background", "bg"]:
         ### Recover from [-1, 1] to  [0, 1]
         if img_type == "uv":
             x = (_input + 1.0) / 2.0
         elif img_type == "bw":
             x = (_input + 1.0) / 2.0 * 255.0
-        elif img_type == "background":
+        elif img_type in ["background", "bg"]:
             if np.ndim(_input)==3:  # (256, 256, 1)
                 x = _input
             elif np.ndim(_input)==2:  
@@ -169,13 +169,13 @@ def process_auto(_input, img_type, process_type="qiyuan"):
             x[:, :] = (_input[:, :] - mean[0]) / std[0]
             x = x[:, :, np.newaxis]
 
-    elif img_type in ["bw", "uv", "background"]:
+    elif img_type in ["bw", "uv", "background","bg"]:
         ### Recover from [-1, 1] to  [0, 1]
         if img_type == "uv":
             x = _input * 2.0 - 1.0
         elif img_type == "bw":
             x = _input / 255.0 * 2.0 - 1.0
-        elif img_type == "background":
+        elif img_type in ["background", "bg"]:
             x = _input
 
     elif img_type in ["ori", "ab"]:
@@ -183,6 +183,9 @@ def process_auto(_input, img_type, process_type="qiyuan"):
 
     elif img_type in ["deform"]:
         x = _input /255.
+        
+    elif img_type in ["tensor"]:
+        x = torch.from_numpy(_input.transpose((2,0,1)))
 
     
     else:
@@ -198,8 +201,11 @@ def reprocess_t2t_auto(_input, img_type, process_type="qiyuan"):
         x = _input / 255.0
     elif img_type in ["np"]:
         x = _input.detach().cpu().numpy().tranpose(0,2,3,1)
-
     else:
         raise NotImplementedError("Error! Got type: {}".format(img_type))
-
     return x
+
+
+def process_np2t_auto(_input):
+    assert type(_input) is np.ndarray
+    return torch.from_numpy(_input.transpose((0,3,1,2)))
