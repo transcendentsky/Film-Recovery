@@ -5,10 +5,12 @@ from . import modules
 
 
 class UnwarpNet_cmap(nn.Module):
-    def __init__(self, use_simple=False, combine_num=3):
+    def __init__(self, use_simple=False, combine_num=3, train_mod="all"):
         super(UnwarpNet_cmap, self).__init__()
         self.combine_num = combine_num
         self.use_simple = use_simple
+        self.train_mod = train_mod
+        print("Training Mode: ", self.train_mod)
         if use_simple:
             self.geo_encoder = modules.Encoder_sim(downsample=4, in_channels=3)
             self.threeD_decoder = modules.Decoder_sim(downsample=4, out_channels=3)
@@ -28,14 +30,18 @@ class UnwarpNet_cmap(nn.Module):
         gxvals, gx_encode = self.geo_encoder(x)
         threeD_map, threeD_feature = self.threeD_decoder(gxvals, gx_encode)
         threeD_map = nn.functional.tanh(threeD_map)
-        geo_feature = torch.cat([threeD_feature, x], dim=1)
-        b, c, h, w = geo_feature.size()
-        secvals, sec_encode = self.second_encoder(geo_feature)
-        uv_map, _ = self.uv_decoder(secvals, sec_encode)
-        uv_map = nn.functional.tanh(uv_map)
-        alb_map, _ = self.albedo_decoder(secvals, sec_encode)
-        alb_map = nn.functional.tanh(alb_map)
-        return uv_map, threeD_map, alb_map
+        if self.train_mod == "cmap_only":
+            return threeD_map
+        else:
+            
+            geo_feature = torch.cat([threeD_feature, x], dim=1)
+            b, c, h, w = geo_feature.size()
+            secvals, sec_encode = self.second_encoder(geo_feature)
+            uv_map, _ = self.uv_decoder(secvals, sec_encode)
+            uv_map = nn.functional.tanh(uv_map)
+            alb_map, _ = self.albedo_decoder(secvals, sec_encode)
+            alb_map = nn.functional.tanh(alb_map)
+            return uv_map, threeD_map, alb_map
 
 
 class UnwarpNet(nn.Module):

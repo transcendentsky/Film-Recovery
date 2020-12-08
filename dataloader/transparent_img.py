@@ -2,18 +2,28 @@ import cv2
 import numpy as np
 import os
 
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
 def transparent_img(img_path):
+    # "/home1/quanquan/datasets/generate/head-texture/head-alpha/CT500-CT365_8.png"
     parent, name = os.path.split(img_path)
-    output_dir = "/home1/quanquan/datasets/generate/head-texture/head-alpha/"
+    output_dir = "/home1/quanquan/datasets/generate/head-texture/head-alpha-2/"
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
     b_channel, g_channel, r_channel = cv2.split(img)
     alpha_channel = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
     # print(alpha_channel, alpha_channel.shape)
+    alpha_channel = sigmoid(alpha_channel/255.0*10-8) *255.0
+    
     aa = np.ones_like(alpha_channel)*255
-    alpha_channel = aa - alpha_channel
-    alpha_channel.astype(np.uint8)
+    # print(alpha_channel, alpha_channel.shape)
+    alpha_channel = np.round(aa - alpha_channel)
+    alpha_channel = alpha_channel.astype(np.uint8)
+    
+    # print(alpha_channel, alpha_channel.shape)
+    
 
     # print("shape: ", img.shape)
 
@@ -33,3 +43,5 @@ if __name__ == "__main__":
         transparent_img(img_path)
         print("writing alpha img : {}  ".format(i), end="")
         i += 1
+        # break
+        # print("test")

@@ -12,7 +12,7 @@ import cv2
 
 from pathlib import Path
 
-TUTILS_DEBUG = True
+TUTILS_DEBUG = False
 TUTILS_INFO = False
 TUTILS_WARNING = True
 

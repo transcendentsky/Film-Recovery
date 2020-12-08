@@ -34,7 +34,7 @@ class filmDataset_2(Dataset):
 class filmDataset_3(Dataset):
     def __init__(self, image_dir, load_mod="all"):
         self.image_dir = image_dir
-        self.image_name = np.array([x.name for x in os.scandir(self.image_dir +'albedo/') if self.check_paths(x.name)])    #x.name.endswith(".png") and    #x.path 则为路径
+        self.image_name = np.array([x.name for x in os.scandir(self.image_dir +'img/') if self.check_paths(x.name)])    #x.name.endswith(".png") and    #x.path 则为路径
         # self.image_name = np.array([x for x in self.image_name_pre if check_paths(x)])
         self.image_name.sort()
         self.input_size =(256, 256)
@@ -44,11 +44,11 @@ class filmDataset_3(Dataset):
     def check_paths(self, x):
         image_name = x
         ori_name = self.image_dir + 'img/' + image_name
-        ab_name  = self.image_dir + 'img/' + image_name
+        ab_name  = self.image_dir + 'albedo/' + image_name
         dep_name = self.image_dir + 'depth/' + image_name[:-3] + 'exr'
-        nor_name = self.image_dir + 'depth/' + image_name[:-3] + 'exr'
-        cmap_name= self.image_dir + 'depth/' + image_name[:-3] + 'exr'
-        uv_name  = self.image_dir + 'depth/' + image_name[:-3] + 'exr'
+        nor_name = self.image_dir + '3dmap/' + image_name[:-3] + 'exr'
+        cmap_name= self.image_dir + 'shader_normal/' + image_name[:-3] + 'exr'
+        uv_name  = self.image_dir + 'uv/' + image_name[:-3] + 'exr'
 
         for name in [ori_name, ab_name, dep_name, nor_name, cmap_name, uv_name]:
             if not os.path.exists(name):
@@ -240,7 +240,52 @@ class filmDataset_old(Dataset):
     def __len__(self):
         return len(self.npy_list)
         
+def data_cleaning(data_dir="/home1/quanquan/datasets/generate/mesh_film_small/"):
     
+    def check_paths(image_dir, x):
+        image_name = x
+        ori_name = image_dir + 'img/' + image_name
+        ab_name  = image_dir + 'albedo/' + image_name
+        dep_name = image_dir + 'depth/' + image_name[:-3] + 'exr'
+        nor_name = image_dir + '3dmap/' + image_name[:-3] + 'exr'
+        cmap_name= image_dir + 'shader_normal/' + image_name[:-3] + 'exr'
+        uv_name  = image_dir + 'uv/' + image_name[:-3] + 'exr'
+
+        for name in [ori_name, ab_name, dep_name, nor_name, cmap_name, uv_name]:
+            if not os.path.exists(name):
+                return False
+        return True
+        
+    def del_files(image_dir, x):
+        # remove files
+        image_name = x
+        ori_name = image_dir + 'img/' + image_name
+        ab_name  = image_dir + 'albedo/' + image_name
+        dep_name = image_dir + 'depth/' + image_name[:-3] + 'exr'
+        nor_name = image_dir + '3dmap/' + image_name[:-3] + 'exr'
+        cmap_name= image_dir + 'shader_normal/' + image_name[:-3] + 'exr'
+        uv_name  = image_dir + 'uv/' + image_name[:-3] + 'exr'
+        
+        if os.path.exists(ori_name):
+            os.remove(ori_name)
+        if os.path.exists(ori_name):
+            os.remove(ab_name)
+        if os.path.exists(ori_name):
+            os.remove(dep_name)
+        if os.path.exists(ori_name):
+            os.remove(nor_name)
+        if os.path.exists(ori_name):
+            os.remove(cmap_name)
+        if os.path.exists(ori_name):
+            os.remove(uv_name)
+        
+        
+    for x in os.scandir(data_dir+"img/"):
+        if not check_paths(data_dir, x.name):
+            print("remove files: ", data_dir+ x.name)
+            del_files(data_dir, x.name)
+            continue
+
 def test_dataset():
     
     from .load_data_2 import filmDataset_3
@@ -262,4 +307,4 @@ def test_dataset():
     print("dasdasdasdsa")
 
 if __name__ == "__main__":
-    test_dataset()
+    data_cleaning()

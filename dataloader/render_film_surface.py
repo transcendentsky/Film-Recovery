@@ -1080,7 +1080,7 @@ if __name__ == "__main__":
     #                       Windows
     film_dir = "/home1/quanquan/datasets/generate/head-texture/head-alpha/"
     hdr_dir = "/home1/quanquan/datasets/generate/INDOORHDR/INDOORHDR/"
-    path_output_dir = "/home1/quanquan/datasets/generate/mesh_film_small_alpha/"
+    path_output_dir = "/home1/quanquan/datasets/generate/mesh_film_small_alpha_test/"
     exist_or_make(path_output_dir)
     path_to_output_images= path_output_dir + 'img/'
     path_to_output_uv    = path_output_dir + 'uv/'

@@ -15,7 +15,7 @@ def augment(_tuple, method, imsize=256):
     ori = cv2.resize(ori, (448, 448))
     
     if "crop" in method:
-        crop_rate = 0.7
+        crop_rate = 0.8
         w,h,c = ori.shape
         # if True:
         #     print(ori.shape)

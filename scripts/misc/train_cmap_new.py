@@ -15,12 +15,12 @@ from tutils import *
 from models.misc.model_cmap import UnwarpNet_cmap
 from dataloader.load_data_2 import filmDataset_3
 from dataloader.print_img import print_img_auto, print_img_with_reprocess
-from tqdm import tqdm
 
-# HyperParams for Scripts
-
-output_dir = tdir("output/train", "old_model"+generate_name())
+# HyperParams for Scripts / Names
+modelname = "new_data"
+output_dir = tdir("output/train", "newdata"+generate_name())
 writer = SummaryWriter(logdir=tdir(output_dir, "summary"))
+max_epoch = 500
 
 def get_lr(optimizer):
     for param_group in optimizer.param_groups:
@@ -33,11 +33,11 @@ def main():
     isTrain = True
     model = torch.nn.DataParallel(model.cuda()) 
     start_epoch = 1
-    # Load Parameters # if args.pretrained:
+    # Load Parameters
+    # if args.pretrained:
     if True:
         print("Loading Pretrained model~")
         #""/home1/quanquan/code/film_code/output/train/aug20201129-210822-VktsHX/cmap_aug_19.pkl""
-        # "/home1/quanquan/code/Film-Recovery/cmap_only_45.pkl"
         pretrained_dict = torch.load("/home1/quanquan/code/Film-Recovery/cmap_only_45.pkl", map_location=None)
         model.load_state_dict(pretrained_dict['model_state'])
         start_lr = pretrained_dict['lr']
@@ -46,7 +46,7 @@ def main():
     kwargs = {'num_workers': 8, 'pin_memory': True} 
     # dataset_test = filmDataset_3(npy_dir="/home1/quanquan/datasets/generate/mesh_film_small/")
     # dataset_test_loader = DataLoader(dataset_test,batch_size=args.test_batch_size, shuffle=False, **kwargs)
-    dataset_train = filmDataset_3("/home1/quanquan/datasets/generate/mesh_film_small/", load_mod="nobw")
+    dataset_train = filmDataset_3("/home1/quanquan/datasets/generate/mesh_film_small_alpha/", load_mod="nobw")
     dataset_train_loader = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True, **kwargs)
     
     # ------------------------------------  Optimizer  -------------------------
@@ -63,7 +63,7 @@ def main():
     start_lr = args.lr
     
     # -----------------------------------  Training  ---------------------------
-    for epoch in range(start_epoch, args.epochs + 1):
+    for epoch in range(start_epoch, max_epoch + 1):
         loss_value, loss_cmap_value, loss_ab_value, loss_uv_value = 0,0,0,0
         model.train()
         datalen = len(dataset_train)
@@ -89,12 +89,7 @@ def main():
             loss.backward()
             optimizer.step()
             scheduler.step()
-            #print("loss:", loss.item(), end="")
-            loss_value      += loss.item()
-            loss_cmap_value += loss_cmap.item()
-            loss_ab_value   += loss_ab.item()
-            loss_uv_value   += loss_uv.item()
-            print("\r Epoch[{}/{}] \t batch:{}/{} \t \t loss: {}".format(epoch, args.epochs, batch_idx,datalen, loss_value/(batch_idx+1)), end=" ") 
+            print("\r Epoch[{}/{}] \t batch:{}/{} \t \t loss: {}".format(epoch, max_epoch, batch_idx,datalen, loss.item()), end=" ") 
             
             lr = get_lr(optimizer)
             # w("check code")

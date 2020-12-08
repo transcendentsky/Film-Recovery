@@ -5,7 +5,7 @@ import cv2
 import torch
 
 def print_img_with_reprocess(img, img_type, fname=None):
-    print("Printing Imgs with Reprocess")
+    #print("Printing Imgs with Reprocess")
     if type(img) is torch.Tensor:
         img = img.transpose(0,1).transpose(1,2)
         img = img.detach().cpu().numpy()
