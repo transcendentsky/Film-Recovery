@@ -19,7 +19,11 @@ def transparent_img(img_path):
     
     aa = np.ones_like(alpha_channel)*255
     # print(alpha_channel, alpha_channel.shape)
-    alpha_channel = np.round(aa - alpha_channel)
+    alpha_channel = np.clip(np.round(aa - alpha_channel), 1, 255)
+    count_matrix = np.where(alpha_channel==0, 0, 1)
+    w,h = count_matrix.shape
+    print("count: ", np.sum(count_matrix))
+    print("({})".format(w*h))
     alpha_channel = alpha_channel.astype(np.uint8)
     
     # print(alpha_channel, alpha_channel.shape)
@@ -43,5 +47,5 @@ if __name__ == "__main__":
         transparent_img(img_path)
         print("writing alpha img : {}  ".format(i), end="")
         i += 1
-        # break
-        # print("test")
+        break
+        print("test")

@@ -24,3 +24,4 @@ film_output/*
 *.txt
 *workspace
 not_used/*
+*.png

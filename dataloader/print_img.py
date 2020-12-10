@@ -218,3 +218,23 @@ def print_large_interpolation(uv, mask, fname):
     # y = np.arange(expand_size)
     # xi, yi = np.meshgrid(x, y)
     mesh = np.zeros((expand_size, expand_size))
+
+
+def test_new_img(img_path, output_name):
+    # cv2.imread()
+    uv = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)        #[0,1]
+    uv = uv[:,:,1:]
+    
+    print_img_auto(uv, "uv", fname=output_name)
+    
+
+if __name__ == "__main__":
+    import os
+    from tutils import tfilename
+    dirname = "/home1/quanquan/datasets/generate/mesh_film_small/uv"
+    
+    for x in os.scandir(dirname):
+        if x.name.endswith("exr"):
+            test_new_img(x.path, tfilename("test_img_old", x.name[:-4]+".jpg"))
+            print(x.name)
+        
