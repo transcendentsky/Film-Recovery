@@ -33,12 +33,14 @@ class filmDataset_2(Dataset):
 
 class filmDataset_3(Dataset):
     def __init__(self, image_dir, load_mod="all"):
+        
         self.image_dir = image_dir
         self.image_name = np.array([x.name for x in os.scandir(self.image_dir +'img/') if self.check_paths(x.name)])    #x.name.endswith(".png") and    #x.path 则为路径
         # self.image_name = np.array([x for x in self.image_name_pre if check_paths(x)])
         self.image_name.sort()
         self.input_size =(256, 256)
         self.load_mod = load_mod
+        # self.load_mod = load_mod if type(load_mod) == list else list(load_mod)
         # print(self.record_files)
 
     def check_paths(self, x):
@@ -64,7 +66,7 @@ class filmDataset_3(Dataset):
 
     def __getitem__(self, index):
         image_name = self.image_name[index]
-        if self.load_mod in ["all", "original", "nobw"]:
+        if True:
             """loading"""
             ori = cv2.imread(self.image_dir + 'img/' + image_name)
             ab = cv2.imread(self.image_dir + 'albedo/' + image_name)
@@ -77,6 +79,7 @@ class filmDataset_3(Dataset):
             uv = cv2.imread(self.image_dir + 'uv/' + image_name[:-3] + 'exr', cv2.IMREAD_UNCHANGED)        #[0,1]
             uv = uv[:,:,1:]
             bg = cv2.threshold(depth[:,:,0], 0, 1, cv2.THRESH_BINARY)[1]   
+            
             #print("shape uv", uv.shape)
             
         if self.load_mod == "original":
@@ -131,7 +134,30 @@ class filmDataset_3(Dataset):
                    torch.from_numpy(uv.transpose((2,0,1))).float(), \
                    torch.from_numpy(bg.transpose((2,0,1))).float(), \
                    torch.from_numpy(bw.transpose((2,0,1))).float(), \
-                           
+        
+        if self.load_mod == "new_ab":
+            ori,ab,dep,nor,cmap,uv,bg= augment((ori,ab,depth,normal,cmap,uv,bg), method=["crop"], imsize=256)
+            #print("ab121", ab.shape)
+            ori = process_auto(ori, "ori")
+            dep = process_auto(dep,  "depth")
+            nor = process_auto(nor, "normal")
+            cmap= process_auto(cmap, "cmap")
+            uv  = process_auto(uv,  "uv")
+            bg  = process_auto(bg,  "bg")
+            ori2 = cv2.cvtColor(ori, cv2.COLOR_BGR2GRAY)[:,:,np.newaxis]
+            ab_diff = np.where(bg > 0, (ori2 - ab), 0)
+            ab_diff = process_auto(ab_diff , "ab" )
+            
+            return torch.from_numpy(ori.transpose((2,0,1))).float(), \
+                   torch.from_numpy(ab_diff.transpose((2,0,1))).float(), \
+                   torch.from_numpy(dep.transpose((2,0,1))).float(), \
+                   torch.from_numpy(nor.transpose((2,0,1))).float(), \
+                   torch.from_numpy(cmap.transpose((2,0,1))).float(), \
+                   torch.from_numpy(uv.transpose((2,0,1))).float(), \
+                   torch.from_numpy(bg.transpose((2,0,1))).float(), \
+
+        raise ValueError
+        
     def __len__(self):
         return len(self.image_name)
 

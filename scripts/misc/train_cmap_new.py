@@ -18,7 +18,7 @@ from dataloader.print_img import print_img_auto, print_img_with_reprocess
 
 # HyperParams for Scripts / Names
 modelname = "new_data"
-output_dir = tdir("output/train", "newdata"+generate_name())
+output_dir = tdir("output/train", modelname+generate_name())
 writer = SummaryWriter(logdir=tdir(output_dir, "summary"))
 max_epoch = 500
 
@@ -38,15 +38,24 @@ def main():
     if True:
         print("Loading Pretrained model~")
         #""/home1/quanquan/code/film_code/output/train/aug20201129-210822-VktsHX/cmap_aug_19.pkl""
-        pretrained_dict = torch.load("/home1/quanquan/code/Film-Recovery/cmap_only_45.pkl", map_location=None)
-        model.load_state_dict(pretrained_dict['model_state'])
+        # "/home1/quanquan/code/Film-Recovery/cmap_only_45.pkl"
+        pretrained_dict = torch.load("/home1/quanquan/code/Film-Recovery/output/train/new_data20201214-090229-F3z21O/cmap_aug_500.pkl", map_location=None)
         start_lr = pretrained_dict['lr']
-        start_epoch = pretrained_dict['epoch']
+        start_epoch = pretrained_dict['epoch'] if pretrained_dict['epoch'] < 100 else 100
+        # -----------------------  Load partial model  ---------------------
+        model_dict=model.state_dict()
+        # 1. filter out unnecessary keys
+        pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+        # 2. overwrite entries in the existing state dict
+        model_dict.update(pretrained_dict)
+        # -------------------------------------------------------------------
+        # model.load_state_dict(pretrained_dict['model_state'])
+        model.load_state_dict(model_dict)
     # ------------------------------------  Load Dataset  -------------------------
     kwargs = {'num_workers': 8, 'pin_memory': True} 
     # dataset_test = filmDataset_3(npy_dir="/home1/quanquan/datasets/generate/mesh_film_small/")
     # dataset_test_loader = DataLoader(dataset_test,batch_size=args.test_batch_size, shuffle=False, **kwargs)
-    dataset_train = filmDataset_3("/home1/quanquan/datasets/generate/mesh_film_small_alpha/", load_mod="nobw")
+    dataset_train = filmDataset_3("/home1/quanquan/datasets/generate/mesh_film_hypo_alpha2/", load_mod="new_ab")
     dataset_train_loader = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True, **kwargs)
     
     # ------------------------------------  Optimizer  -------------------------
@@ -64,7 +73,7 @@ def main():
     
     # -----------------------------------  Training  ---------------------------
     for epoch in range(start_epoch, max_epoch + 1):
-        loss_value, loss_cmap_value, loss_ab_value, loss_uv_value = 0,0,0,0
+        loss_value, loss_cmap_value, loss_ab_value, loss_uv_value, loss_bg_value = 0,0,0,0,0
         model.train()
         datalen = len(dataset_train)
         print("Output dir:", output_dir)
@@ -79,24 +88,31 @@ def main():
             bg_gt  = data[6].cuda()
             
             optimizer.zero_grad()
-            uv, cmap, ab = model(ori_gt)               
+            uv, cmap, ab, bg = model(ori_gt)               
             # print("ab shapes: ", ab.shape, ab_gt.shape)
             
             loss_cmap = criterion(cmap, cmap_gt).float()
             loss_ab = criterion(ab, ab_gt).float()
             loss_uv   = criterion(uv, uv_gt).float()
-            loss = loss_uv + loss_ab + loss_cmap 
+            loss_bg   = criterion(bg, bg_gt).float()
+            loss = loss_uv + loss_ab + loss_cmap + loss_bg
             loss.backward()
             optimizer.step()
             scheduler.step()
-            print("\r Epoch[{}/{}] \t batch:{}/{} \t \t loss: {}".format(epoch, max_epoch, batch_idx,datalen, loss.item()), end=" ") 
+            
+            loss_value      += loss.item()
+            loss_cmap_value += loss_cmap.item()
+            loss_ab_value   += loss_ab.item()
+            loss_uv_value   += loss_uv.item()
+            loss_bg_value   += loss_bg.item()
+            print("\r Epoch[{}/{}] \t batch:{}/{} \t \t loss: {}".format(epoch, max_epoch, batch_idx,datalen, loss_value/(batch_idx+1)), end=" ") 
             
             lr = get_lr(optimizer)
             # w("check code")
             # break
         
-        writer_tb((loss_value/(batch_idx+1), loss_ab_value/(batch_idx+1), loss_uv_value/(batch_idx+1), loss_cmap_value/(batch_idx+1), lr), epoch=epoch)
-        write_imgs_2((cmap[0,:,:,:], uv[0,:,:,:], ab[0,:,:,:], ori_gt[0,:,:,:], cmap_gt[0,:,:,:], uv_gt[0,:,:,:], ab_gt[0,:,:,:]), epoch)
+        writer_tb((loss_value/(batch_idx+1), loss_ab_value/(batch_idx+1), loss_uv_value/(batch_idx+1), loss_cmap_value/(batch_idx+1),loss_bg_value/(batch_idx+1), lr), epoch=epoch)
+        write_imgs_2((cmap[0,:,:,:], uv[0,:,:,:], ab[0,:,:,:],bg[0,:,:,:], ori_gt[0,:,:,:], cmap_gt[0,:,:,:], uv_gt[0,:,:,:], ab_gt[0,:,:,:], bg_gt[0,:,:,:]), epoch)
 
         if isTrain and args.save_model:
             state = {'epoch': epoch + 1,
@@ -107,32 +123,34 @@ def main():
             torch.save(state, tfilename(output_dir, "{}_{}.pkl".format("cmap_aug", epoch)))
 
 def writer_tb(loss_tuple, epoch):
-    loss, loss_ab, loss_uv, loss_cmap, lr = loss_tuple
+    loss, loss_ab, loss_uv, loss_cmap, loss_bg, lr = loss_tuple
     writer.add_scalar('summary/train_loss',        loss,      global_step=epoch)
     writer.add_scalar('summary/train_cmap_loss',   loss_cmap, global_step=epoch)
     writer.add_scalar('summary/train_uv_loss',     loss_uv,   global_step=epoch)
     # writer.add_scalar('summary/train_normal_loss', loss_nor,  global_step=epoch)
     # writer.add_scalar('summary/train_depth_loss',  loss_dep,  global_step=epoch)
     writer.add_scalar('summary/train_ab_loss',     loss_ab,   global_step=epoch)
-    # writer.add_scalar('summary/train_back_loss',   loss_bg,   global_step=epoch)
+    writer.add_scalar('summary/train_bg_loss',   loss_bg,   global_step=epoch)
     writer.add_scalar('summary/lrate',             lr,               global_step=epoch)
 
 
 def write_imgs_2(img_tuple, epoch, type_tuple=None, name_tuple=None):
-    cmap, uv, ab, \
-        ori_gt, cmap_gt, uv_gt, ab_gt = img_tuple
+    cmap, uv, ab, bg,\
+        ori_gt, cmap_gt, uv_gt, ab_gt, bg_gt = img_tuple
 
     #print_img_auto(ori,  "ori",  fname=tfilename(output_dir,"imgshow", "ori.jpg"))
     print_img_with_reprocess(cmap, "cmap",  fname=tfilename(output_dir,"imgshow/epoch_{}".format(epoch), "cmap.jpg"))
     print_img_with_reprocess(uv ,  "uv"  ,  fname=tfilename(output_dir,"imgshow/epoch_{}".format(epoch), "uv.jpg"))
     # print_img_auto(bg ,  "bg"  ,  fname=tfilename(output_dir,"imgshow", "bg.jpg"))
     print_img_with_reprocess(ab ,  "ab"  ,  fname=tfilename(output_dir,"imgshow/epoch_{}".format(epoch), "ab.jpg"))
+    print_img_with_reprocess(bg ,  "bg"  ,  fname=tfilename(output_dir,"imgshow/epoch_{}".format(epoch), "bg.jpg"))
     
     print_img_with_reprocess(ori_gt,  "ori" ,  fname=tfilename(output_dir,"imgshow/epoch_{}".format(epoch), "ori_gt.jpg"))
     print_img_with_reprocess(cmap_gt, "cmap",  fname=tfilename(output_dir,"imgshow/epoch_{}".format(epoch), "cmap_gt.jpg"))
     print_img_with_reprocess(uv_gt ,  "uv"  ,  fname=tfilename(output_dir,"imgshow/epoch_{}".format(epoch), "uv_gt.jpg"))
     # print_img_auto(bg_gt ,  "bg"  ,  fname=tfilename(output_dir,"imgshow", "bg.jpg"))
     print_img_with_reprocess(ab_gt ,  "ab"  ,  fname=tfilename(output_dir,"imgshow/epoch_{}".format(epoch), "ab_gt.jpg"))
+    print_img_with_reprocess(bg_gt ,  "bg"  ,  fname=tfilename(output_dir,"imgshow/epoch_{}".format(epoch), "bg_gt.jpg"))
 
 # def write_imgs(img_tuple, name_tuple):
 #     img_list = list(img_tuple)

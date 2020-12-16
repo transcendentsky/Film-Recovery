@@ -11,37 +11,41 @@ class UnwarpNet_cmap(nn.Module):
         self.use_simple = use_simple
         self.train_mod = train_mod
         print("Training Mode: ", self.train_mod)
-        if use_simple:
-            self.geo_encoder = modules.Encoder_sim(downsample=4, in_channels=3)
-            self.threeD_decoder = modules.Decoder_sim(downsample=4, out_channels=3)
-            self.second_encoder = modules.Encoder_sim(downsample=4, in_channels= 2 ** 6+3)
-            self.uv_decoder = modules.Decoder_sim(downsample=4, out_channels=2)
-            self.albedo_decoder = modules.Decoder_sim(downsample=4, out_channels=1)
-        else:
-            self.geo_encoder = modules.Encoder(downsample=6, in_channels=3)
-            self.threeD_decoder = modules.Decoder(downsample=6, out_channels=3, combine_num=self.combine_num)
-            bottle_neck = sum([2 ** (i + 4) for i in range(self.combine_num)])
-            self.second_encoder = modules.Encoder(downsample=6, in_channels=bottle_neck + 3)
-            self.uv_decoder = modules.Decoder(downsample=6, out_channels=2, combine_num=0)
-            # self.albedo_decoder = modules.AlbedoDecoder(downsample=6, out_channels=1)
-            self.albedo_decoder = modules.Decoder(downsample=6, out_channels=1, combine_num=0)
+        # if use_simple:
+        #     self.geo_encoder = modules.Encoder_sim(downsample=4, in_channels=3)
+        #     self.threeD_decoder = modules.Decoder_sim(downsample=4, out_channels=3)
+        #     self.second_encoder = modules.Encoder_sim(downsample=4, in_channels= 2 ** 6+3)
+        #     self.uv_decoder = modules.Decoder_sim(downsample=4, out_channels=2)
+        #     self.albedo_decoder = modules.Decoder_sim(downsample=4, out_channels=1)
+        # else:
+        self.geo_encoder = modules.Encoder(downsample=6, in_channels=3)
+        self.threeD_decoder = modules.Decoder(downsample=6, out_channels=3, combine_num=self.combine_num)
+        self.mask_decoder = modules.Decoder(downsample=6, out_channels=1, combine_num=0)
+        bottle_neck = sum([2 ** (i + 4) for i in range(self.combine_num)])
+        self.second_encoder = modules.Encoder(downsample=6, in_channels=bottle_neck + 3)
+        self.uv_decoder = modules.Decoder(downsample=6, out_channels=2, combine_num=0)
+        # self.albedo_decoder = modules.AlbedoDecoder(downsample=6, out_channels=1)
+        self.albedo_decoder = modules.Decoder(downsample=6, out_channels=1, combine_num=0)
 
     def forward(self, x):
         gxvals, gx_encode = self.geo_encoder(x)
         threeD_map, threeD_feature = self.threeD_decoder(gxvals, gx_encode)
         threeD_map = nn.functional.tanh(threeD_map)
+        mask_map, mask_feature = self.mask_decoder(gxvals, gx_encode)
+        mask_map = torch.nn.functional.sigmoid(mask_map)
         if self.train_mod == "cmap_only":
             return threeD_map
         else:
-            
             geo_feature = torch.cat([threeD_feature, x], dim=1)
             b, c, h, w = geo_feature.size()
-            secvals, sec_encode = self.second_encoder(geo_feature)
+            geo_feature_mask = geo_feature.mul(mask_map.expand(b, c, h, w))
+            
+            secvals, sec_encode = self.second_encoder(geo_feature_mask)
             uv_map, _ = self.uv_decoder(secvals, sec_encode)
             uv_map = nn.functional.tanh(uv_map)
             alb_map, _ = self.albedo_decoder(secvals, sec_encode)
             alb_map = nn.functional.tanh(alb_map)
-            return uv_map, threeD_map, alb_map
+            return uv_map, threeD_map, alb_map, mask_map
 
 
 class UnwarpNet(nn.Module):
