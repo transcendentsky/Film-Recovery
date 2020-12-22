@@ -42,15 +42,15 @@ def augment(_tuple, method, imsize=256):
         uv  = uv[y:yy, x:xx, :]
         bg  = bg[y:yy, x:xx]
         
-        ori = cv2.resize(ori, (imsize, imsize))        
-        ab  = cv2.resize(ab , (imsize, imsize))[:,:,np.newaxis]
-        dep = cv2.resize(dep, (imsize, imsize))
-        nor = cv2.resize(nor, (imsize, imsize))
-        cmap= cv2.resize(cmap, (imsize, imsize))
-        uv  = cv2.resize(uv, (imsize, imsize))
-        bg  = cv2.resize(bg, (imsize, imsize))[:,:,np.newaxis]
-        # print("resize over?")
-        #print("aug ?22 ab", ab.shape, bg.shape)
+    ori = cv2.resize(ori, (imsize, imsize))        
+    ab  = cv2.resize(ab , (imsize, imsize))[:,:,np.newaxis]
+    dep = cv2.resize(dep, (imsize, imsize))
+    nor = cv2.resize(nor, (imsize, imsize))
+    cmap= cv2.resize(cmap, (imsize, imsize))
+    uv  = cv2.resize(uv, (imsize, imsize))
+    bg  = cv2.resize(bg, (imsize, imsize))[:,:,np.newaxis]
+    # print("resize over?")
+    #print("aug ?22 ab", ab.shape, bg.shape)
         
     return ori,ab,dep,nor,cmap,uv,bg
     

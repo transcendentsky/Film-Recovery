@@ -39,7 +39,8 @@ def main():
         print("Loading Pretrained model~")
         #""/home1/quanquan/code/film_code/output/train/aug20201129-210822-VktsHX/cmap_aug_19.pkl""
         # "/home1/quanquan/code/Film-Recovery/cmap_only_45.pkl"
-        pretrained_dict = torch.load("/home1/quanquan/code/Film-Recovery/output/train/new_data20201214-090229-F3z21O/cmap_aug_500.pkl", map_location=None)
+        # "/home1/quanquan/code/Film-Recovery/output/train/new_data20201214-090229-F3z21O/cmap_aug_500.pkl"
+        pretrained_dict = torch.load("/home1/quanquan/code/Film-Recovery/cmap_only_45.pkl", map_location=None)
         start_lr = pretrained_dict['lr']
         start_epoch = pretrained_dict['epoch'] if pretrained_dict['epoch'] < 100 else 100
         # -----------------------  Load partial model  ---------------------
@@ -95,10 +96,10 @@ def main():
             loss_ab = criterion(ab, ab_gt).float()
             loss_uv   = criterion(uv, uv_gt).float()
             loss_bg   = criterion(bg, bg_gt).float()
-            loss = loss_uv + loss_ab + loss_cmap + loss_bg
+            
+            loss = loss_cmap + loss_bg # + loss_ab + loss_uv
             loss.backward()
             optimizer.step()
-            scheduler.step()
             
             loss_value      += loss.item()
             loss_cmap_value += loss_cmap.item()
@@ -111,10 +112,12 @@ def main():
             # w("check code")
             # break
         
+        #scheduler.step()
+            
         writer_tb((loss_value/(batch_idx+1), loss_ab_value/(batch_idx+1), loss_uv_value/(batch_idx+1), loss_cmap_value/(batch_idx+1),loss_bg_value/(batch_idx+1), lr), epoch=epoch)
         write_imgs_2((cmap[0,:,:,:], uv[0,:,:,:], ab[0,:,:,:],bg[0,:,:,:], ori_gt[0,:,:,:], cmap_gt[0,:,:,:], uv_gt[0,:,:,:], ab_gt[0,:,:,:], bg_gt[0,:,:,:]), epoch)
 
-        if isTrain and args.save_model:
+        if isTrain and args.save_model and epoch % 10 == 0:
             state = {'epoch': epoch + 1,
                      'lr': lr,
                      'model_state': model.state_dict(),

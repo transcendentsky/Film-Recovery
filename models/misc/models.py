@@ -86,17 +86,17 @@ class UnwarpNet(nn.Module):
         #alb_map, _ = self.albedo_decoder(albvals, alb_encode)
         alb_map, _ = self.albedo_decoder(secvals, sec_encode)
         alb_map = nn.functional.tanh(alb_map)
-        if self.use_constrain:
-            nor_from_threeD, dep_from_threeD = self.threeD_to_nor2dep(threeD_map)
-            nor_from_dep = self.dep2nor(dep_map)
-            dep_from_nor = self.nor2dep(nor_map)
-            nor_from_threeD = nn.functional.tanh(nor_from_threeD)
-            dep_from_threeD = nn.functional.tanh(dep_from_threeD)
-            nor_from_dep = nn.functional.tanh(nor_from_dep)
-            dep_from_nor = nn.functional.tanh(dep_from_nor)
-            return uv_map, threeD_map, nor_map, alb_map, dep_map, mask_map, nor_from_threeD, dep_from_threeD, nor_from_dep, dep_from_nor
-        return uv_map, threeD_map, nor_map, alb_map, dep_map, mask_map, None, None, None, None
-
+        # if self.use_constrain:
+        #     nor_from_threeD, dep_from_threeD = self.threeD_to_nor2dep(threeD_map)
+        #     nor_from_dep = self.dep2nor(dep_map)
+        #     dep_from_nor = self.nor2dep(nor_map)
+        #     nor_from_threeD = nn.functional.tanh(nor_from_threeD)
+        #     dep_from_threeD = nn.functional.tanh(dep_from_threeD)
+        #     nor_from_dep = nn.functional.tanh(nor_from_dep)
+        #     dep_from_nor = nn.functional.tanh(dep_from_nor)
+            # return uv_map, threeD_map, nor_map, alb_map, dep_map, mask_map, nor_from_threeD, dep_from_threeD, nor_from_dep, dep_from_nor
+        # return uv_map, threeD_map, nor_map, alb_map, dep_map, mask_map, None, None, None, None
+        return uv_map, threeD_map, nor_map, alb_map, dep_map, mask_map
 
 
 if __name__ == '__main__':

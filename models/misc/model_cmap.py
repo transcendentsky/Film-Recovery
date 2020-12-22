@@ -33,6 +33,7 @@ class UnwarpNet_cmap(nn.Module):
         threeD_map = nn.functional.tanh(threeD_map)
         mask_map, mask_feature = self.mask_decoder(gxvals, gx_encode)
         mask_map = torch.nn.functional.sigmoid(mask_map)
+        mask_map_2 = torch.where(mask_map > 0.5, torch.ones_like(mask_map), torch.zeros_like(mask_map)).float()
         if self.train_mod == "cmap_only":
             return threeD_map
         else:
@@ -77,6 +78,10 @@ class UnwarpNet(nn.Module):
         nor_map = nn.functional.tanh(nor_map)
         mask_map, mask_feature = self.mask_decoder(gxvals, gx_encode)
         mask_map = torch.nn.functional.sigmoid(mask_map)
+        #mask_map = torch.nn.functional.tanh(mask_map)
+        
+        mask_map_2 = torch.where(mask_map > 0.5, torch.ones_like(mask_map), torch.zeros_like(mask_map)).float()
+        
         #geo_feature = torch.cat([threeD_feature, nor_feature, dep_feature], dim=1)
         geo_feature = torch.cat([threeD_feature, nor_feature, dep_feature, x], dim=1)
         b, c, h, w = geo_feature.size()
@@ -88,7 +93,7 @@ class UnwarpNet(nn.Module):
         alb_map, _ = self.albedo_decoder(secvals, sec_encode)
         alb_map = nn.functional.tanh(alb_map)
         
-        return uv_map, threeD_map, nor_map, alb_map, dep_map, mask_map
+        return uv_map, threeD_map, nor_map, alb_map, dep_map, mask_map, mask_map_2
 
 
 

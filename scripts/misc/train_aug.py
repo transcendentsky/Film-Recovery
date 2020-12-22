@@ -88,7 +88,6 @@ def main():
             loss = loss_uv + loss_ab + loss_cmap 
             loss.backward()
             optimizer.step()
-            scheduler.step()
             #print("loss:", loss.item(), end="")
             loss_value      += loss.item()
             loss_cmap_value += loss_cmap.item()
@@ -99,6 +98,8 @@ def main():
             lr = get_lr(optimizer)
             # w("check code")
             # break
+            
+        #scheduler.step()
         
         writer_tb((loss_value/(batch_idx+1), loss_ab_value/(batch_idx+1), loss_uv_value/(batch_idx+1), loss_cmap_value/(batch_idx+1), lr), epoch=epoch)
         write_imgs_2((cmap[0,:,:,:], uv[0,:,:,:], ab[0,:,:,:], ori_gt[0,:,:,:], cmap_gt[0,:,:,:], uv_gt[0,:,:,:], ab_gt[0,:,:,:]), epoch)

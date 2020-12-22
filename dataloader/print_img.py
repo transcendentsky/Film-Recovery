@@ -24,7 +24,7 @@ def print_img_auto(img, img_type, is_gt=True, fname=None):
         raise TypeError("Wrong type: Got {}".format(type(img)))
 
 def print_img_tensor(img_tensor, img_type, is_gt=True, fname=None):
-    print("[Printing] ", img_type)
+    #print("[Printing] ", img_type)
     img_tensor = img_tensor.transpose(0,1).transpose(1,2)
     img_np = img_tensor.detach().cpu().numpy()
     print_img_np(img_np, img_type)
@@ -44,6 +44,8 @@ def print_img_np(img, img_type, is_gt=True, fname=None):
         print_bw(img, is_gt, fname=fname)
     elif img_type in ["background", "bg"]:
         print_back(img, is_gt, fname=fname)
+    elif img_type == "exr":
+        print_cmap(img, is_gt, fname=fname)
     elif img_type == "cmap":
         print_cmap(img, is_gt, fname=fname)
     elif img_type == "normal":
@@ -127,7 +129,7 @@ def print_uv(uv, is_gt, epoch=0, fname=None): # [0,1]
     uv = np.concatenate([uv, bb], axis=2)
     fname = tfilename(fname) if fname is not None else tfilename("imgshow",epoch_text,"uv_"+subtitle+"/uv_"+generate_name()+".jpg")
     #d("print_uv func: ")
-    print(np.sum(uv[:,:,2]))
+    #print(np.sum(uv[:,:,2]))
     cv2.imwrite(fname, uv)
 
 def print_back(background, is_gt, epoch=0, fname=None): # [0,1]
