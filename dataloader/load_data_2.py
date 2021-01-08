@@ -13,6 +13,7 @@ from dataloader import data_process, print_img, uv2bw, bw2deform
 from .augment import augment
 from .data_process import process_auto
 from .print_img import print_img_auto,print_img_with_reprocess
+from .extra_bg import get_composed_imgs
 
 ori_image_dir = 'data_2000/Mesh_Film/npy/'
 
@@ -114,11 +115,11 @@ class filmDataset_3(Dataset):
         if self.load_mod == "original":
             print("output original data")
             return ori,ab,dep,nor,cmap,uv,bg
-            
+
         if self.load_mod == "nobw":
             """processing"""
             ori,ab,dep,nor,cmap,uv,bg= augment((ori,ab,dep,nor,cmap,uv,bg), method=["crop"], imsize=256)
-            #print("ab121", ab.shape)
+
             ori = process_auto(ori, "ori")
             ab  = process_auto(ab , "ab" )
             dep = process_auto(dep, "exr") #
@@ -127,11 +128,6 @@ class filmDataset_3(Dataset):
             uv  = process_auto(uv,  "uv")
             bg  = process_auto(bg,  "bg")
     
-            # ori,ab,dep,nor,cmap,uv,bg
-            # Bug exists because of no flaot()
-            #print("ab", ab.shape)
-            #print("ori", ori.shape)
-            #print("dep", dep.shape, bg.shape)
             return torch.from_numpy(ori.transpose((2,0,1))).float(), \
                    torch.from_numpy(ab.transpose((2,0,1))).float(), \
                    torch.from_numpy(dep.transpose((2,0,1))).float(), \
@@ -185,7 +181,35 @@ class filmDataset_3(Dataset):
                    torch.from_numpy(cmap.transpose((2,0,1))).float(), \
                    torch.from_numpy(uv.transpose((2,0,1))).float(), \
                    torch.from_numpy(bg.transpose((2,0,1))).float(), \
-
+            
+        if self.load_mod == "extra_bg":
+            if random.random() > 0.66:  # 
+                ori,ab,dep,nor,cmap,uv,bg = get_composed_imgs((ori,ab,dep,nor,cmap,uv,bg))    
+                ori,ab,dep,nor,cmap,uv,bg = augment((ori,ab,dep,nor,cmap,uv,bg), method=["crop"], imsize=256, crop_rate=0.7)
+            else:
+                ori,ab,dep,nor,cmap,uv,bg = augment((ori,ab,dep,nor,cmap,uv,bg), method=["crop"], imsize=256, crop_rate=0.9)
+            # import ipdb; ipdb.set_trace()
+            # return ori,ab,dep,nor,cmap,uv,bg
+            ori = process_auto(ori, "ori")
+            ab  = process_auto(ab , "ab" )
+            dep = process_auto(dep, "exr") #
+            nor = process_auto(nor, "exr") #
+            cmap= process_auto(cmap, "exr") #
+            uv  = process_auto(uv,  "uv")
+            bg  = process_auto(bg,  "bg")
+            # ab-diff 
+            ori2 = cv2.cvtColor(ori, cv2.COLOR_BGR2GRAY)[:,:,np.newaxis]
+            ab_diff = np.where(bg > 0, (ori2 - ab), 0)
+            ab_diff = process_auto(ab_diff , "ab" )
+            
+            return torch.from_numpy(ori.transpose((2,0,1))).float(), \
+                   torch.from_numpy(ab_diff.transpose((2,0,1))).float(), \
+                   torch.from_numpy(dep.transpose((2,0,1))).float(), \
+                   torch.from_numpy(nor.transpose((2,0,1))).float(), \
+                   torch.from_numpy(cmap.transpose((2,0,1))).float(), \
+                   torch.from_numpy(uv.transpose((2,0,1))).float(), \
+                   torch.from_numpy(bg.transpose((2,0,1))).float(),          
+        
         raise ValueError
         
     def __len__(self):
@@ -343,27 +367,27 @@ def data_cleaning(data_dir="/home1/quanquan/datasets/generate/mesh_film_small/")
             del_files(data_dir, x.name)
             continue
 
+# --------------------------------------------------------
+#                       Test
+# --------------------------------------------------------
 def pre_normal(image_dir):
     data_path = "/home1/quanquan/datasets/generate/mesh_film_hypo_alpha2/"
     dataset = filmDataset_3(data_path, load_mod="nobw")
     
-
-
 def test_dataset():
     
     from .load_data_2 import filmDataset_3
     from .data_process import reprocess_auto
-    
     from torch.utils.data import Dataset, DataLoader
     data_path = "/home1/quanquan/datasets/generate/mesh_film_small/"
     dataset = filmDataset_3(data_path, load_mod="original")
 
     #ori,ab,dep,nor,cmap,uv,bg = dataset.__getitem__(0)
     
-    ori,ab,depth,normal,cmap,uv,bg = dataset.__getitem__(0)
+    ori,ab,dep,nor,cmap,uv,bg = dataset.__getitem__(0)
     print("----- Test Data ------")
-    print(np.min(normal), np.min(depth), np.min(cmap))
-    print(np.max(normal),np.max(depth),np.max(cmap))
+    print(np.min(nor), np.min(dep), np.min(cmap))
+    print(np.max(nor),np.max(dep),np.max(cmap))
     
     print_img_with_reprocess(ori, "ori")
     print_img_with_reprocess(ab,  "ab")
@@ -374,8 +398,40 @@ def test_dataset():
     print_img_with_reprocess(bg,  "bg")
     print("dasdasdasdsa")
 
-#def test_
+def test_extra_bg():
+    data_path = "/home1/quanquan/datasets/generate/mesh_film_hypo_alpha2/"
+    dataset = filmDataset_3(data_path, load_mod="extra_bg") 
+    ori,ab,dep,nor,cmap,uv,bg = dataset.__getitem__(0)
+    
+    print("Print Img Auto: ")
+    print_img_with_reprocess(ori, "ori")
+    print_img_with_reprocess(ab,  "ab")
+    print_img_with_reprocess(dep, "exr")
+    print_img_with_reprocess(nor, "exr")
+    print_img_with_reprocess(cmap, "exr")
+    print_img_with_reprocess(uv , "uv")
+    print_img_with_reprocess(bg,  "bg")
+    # print_img_auto(ori, "ori")
+    # print_img_auto(ab,  "ab")
+    # print_img_auto(dep, "depth")
+    # print_img_auto(nor, "normal")
+    # print_img_auto(cmap, "cmap")
+    # print_img_auto(uv , "uv")
+    # print_img_auto(bg,  "bg")
+
+def test_cmap_xyz():
+    data_path = "/home1/quanquan/datasets/generate/mesh_film_hypo_alpha2/"
+    dataset = filmDataset_3(data_path, load_mod="original")
+    ori,ab,dep,nor,cmap,uv,bg = dataset.__getitem__(0)
+    
+    print_img_auto(cmap, "cmap")
+    print_img_auto(cmap[:,:,0], "bg")
+    print_img_auto(cmap[:,:,1], "bg")
+    print_img_auto(cmap[:,:,2], "bg")
+            
 
 if __name__ == "__main__":
-    #data_cleaning()
-    test_dataset()
+    # data_cleaning()
+    # test_dataset()
+    # test_extra_bg()
+    test_cmap_xyz()

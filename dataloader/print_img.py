@@ -27,7 +27,7 @@ def print_img_tensor(img_tensor, img_type, is_gt=True, fname=None):
     #print("[Printing] ", img_type)
     img_tensor = img_tensor.transpose(0,1).transpose(1,2)
     img_np = img_tensor.detach().cpu().numpy()
-    print_img_np(img_np, img_type)
+    print_img_np(img_np, img_type, is_gt, fname)
 
 def print_img_np(img, img_type, is_gt=True, fname=None):
     """
@@ -45,7 +45,7 @@ def print_img_np(img, img_type, is_gt=True, fname=None):
     elif img_type in ["background", "bg"]:
         print_back(img, is_gt, fname=fname)
     elif img_type == "exr":
-        print_cmap(img, is_gt, fname=fname)
+        print_exr(img, is_gt, fname=fname)
     elif img_type == "cmap":
         print_cmap(img, is_gt, fname=fname)
     elif img_type == "normal":
@@ -70,12 +70,21 @@ def print_img_np(img, img_type, is_gt=True, fname=None):
 
 # ---------------------  Print IMGS  ------------------------
 # -----------------------------------------------------------------------------
+def print_exr(cmap, is_gt, epoch=0, fname=None):  # [0,1]
+    subtitle = "gt" if is_gt else "pred"
+    epoch_text = "epoch{}".format(epoch)
+    cmap = cmap * 255
+    cmap = cmap.astype(np.uint8)
+    fname = tfilename(fname) if fname is not None else tfilename("imgshow",epoch_text,"exr_"+subtitle+"/cmap_"+generate_name()+".jpg")
+    cv2.imwrite(fname, cmap)
+    
 def print_cmap(cmap, is_gt, epoch=0, fname=None):  # [0,1]
     subtitle = "gt" if is_gt else "pred"
     epoch_text = "epoch{}".format(epoch)
     cmap = cmap * 255
     cmap = cmap.astype(np.uint8)
     fname = tfilename(fname) if fname is not None else tfilename("imgshow",epoch_text,"cmap_"+subtitle+"/cmap_"+generate_name()+".jpg")
+    d(fname)
     cv2.imwrite(fname, cmap)
 
 def print_normal(normal, is_gt, epoch=0, fname=None): # [0,1]

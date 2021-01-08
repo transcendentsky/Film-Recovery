@@ -9,25 +9,16 @@ from .print_img import print_img_auto
 import random
 import numpy as np
 
-def augment(_tuple, method, imsize=256):
+def augment(_tuple, method, imsize=256, crop_rate=0.9):
     
     ori,ab,dep,nor,cmap,uv,bg = _tuple
-    ori = cv2.resize(ori, (448, 448))
     
     if "crop" in method:
-        crop_rate = 0.9
-        w,h,c = ori.shape
-        # if True:
-        #     print(ori.shape)
-        #     print(ab.shape)
-        #     print(dep.shape)
-        #     print(nor.shape)
-        #     print(cmap.shape)
-        #     print(uv.shape)
-        #     print(bg.shape)
+        w,h,c = cmap.shape
+        ori = cv2.resize(ori, (w, h))
         
-        randw = crop_rate+(0.99-crop_rate)*random.random()
-        randh = crop_rate+(0.99-crop_rate)*random.random()
+        randw = crop_rate+(1-crop_rate)*random.random()
+        randh = crop_rate+(1-crop_rate)*random.random()
         # print("crop: ", randw, randh)
         x  = int( (1-randw)/2.*w )
         y  = int( (1-randw)/2.*h )
@@ -41,6 +32,7 @@ def augment(_tuple, method, imsize=256):
         cmap= cmap[y:yy, x:xx, :]
         uv  = uv[y:yy, x:xx, :]
         bg  = bg[y:yy, x:xx]
+        # import ipdb; ipdb.set_trace()
         
     ori = cv2.resize(ori, (imsize, imsize))        
     ab  = cv2.resize(ab , (imsize, imsize))[:,:,np.newaxis]
@@ -49,8 +41,6 @@ def augment(_tuple, method, imsize=256):
     cmap= cv2.resize(cmap, (imsize, imsize))
     uv  = cv2.resize(uv, (imsize, imsize))
     bg  = cv2.resize(bg, (imsize, imsize))[:,:,np.newaxis]
-    # print("resize over?")
-    #print("aug ?22 ab", ab.shape, bg.shape)
         
     return ori,ab,dep,nor,cmap,uv,bg
     

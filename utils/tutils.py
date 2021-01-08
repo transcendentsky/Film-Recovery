@@ -33,9 +33,9 @@ def d(*s,end="\n", **kargs ):
 
 def tfuncname(func):
     def run(*argv, **kargs):
-        print("--------------------------------------------")
-        print("[Trans Utils] Print function name: ", end=" ")
-        print(func.__name__)
+        d("--------------------------------------------")
+        d("[Trans Utils] Print function name: ", end=" ")
+        d(func.__name__)
         ret = func(*argv, **kargs)
         # if argv:
         #     ret = func(*argv)
@@ -98,7 +98,8 @@ def tfilename(*filenames):
     filename = os.path.join(*names)
     d(filename)
     parent, name = os.path.split(filename)
-    if not os.path.exists(parent):
+    d(parent, len(parent))
+    if len(parent) > 0 and not os.path.exists(parent) :
         os.makedirs(parent)
     return filename
 
@@ -121,5 +122,6 @@ def add_total(tuple1, tuple2):
 if __name__ == "__main__":
     # tt()
     # tfilename("dasd", "/dasdsa", "/dsad")
-    tdir("dasd", "/dsadads", "/dsdas")
+    # tdir("dasd", "/dsadads", "/dsdas")
+    tfilename("imgshowda/test.jpg")
 

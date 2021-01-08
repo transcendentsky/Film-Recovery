@@ -12,7 +12,7 @@ import math
 # from apex.fp16_utils import *
 # from apex import amp, optimizers
 from tutils import *
-from models.misc.model_cmap import UnwarpNet_cmap, UnwarpNet
+from models.misc.model_cmap import UnwarpNet_cmap, UnwarpNet, UnwarpNet_wo_bg
 from dataloader.load_data_2 import filmDataset_3, RealDataset
 from dataloader.print_img import print_img_auto, print_img_with_reprocess
 from dataloader.data_process import reprocess_np_auto, reprocess_auto
@@ -36,7 +36,7 @@ def get_lr(optimizer):
 
 def main():
     # -----------------------------------  Model Build -------------------------
-    model = UnwarpNet(combine_num=1)
+    model = UnwarpNet_wo_bg(combine_num=1)
     args = train_configs.args
     isTrain = True
     model = torch.nn.DataParallel(model.cuda()) 
@@ -102,7 +102,8 @@ def main():
             bg_gt  = data[6].cuda()
             
             optimizer.zero_grad()
-            uv, cmap, nor, ab, dep, bg, bg2 = model(ori_gt)  #uv_map, threeD_map, nor_map, alb_map, dep_map, mask_map             
+            uv, cmap, nor, ab, dep, _, _ = model(ori_gt)  
+            # uv_map, threeD_map, nor_map, alb_map, dep_map, mask_map             
             # print("ab shapes: ", ab.shape, ab_gt.shape)
             
             # loss_uv_tv = tv_loss(uv, 0.1)
@@ -111,11 +112,11 @@ def main():
             loss_cmap = criterion(cmap, cmap_gt).float()
             loss_ab   = criterion(ab, ab_gt).float()
             loss_uv   = criterion(uv, uv_gt).float()
-            loss_bg   = criterion(bg, bg_gt).float()
+            # loss_bg   = criterion(bg, bg_gt).float()
             loss_nor  = criterion(nor, nor_gt).float()
             loss_dep  = criterion(dep, dep_gt).float()
             
-            loss = loss_cmap + loss_bg + loss_nor + loss_dep  + loss_uv + loss_ab
+            loss = loss_cmap + loss_nor + loss_dep  + loss_uv + loss_ab
             loss.backward()
             optimizer.step()
             
@@ -123,7 +124,7 @@ def main():
             loss_cmap_value += loss_cmap.item()
             loss_ab_value   += loss_ab.item()
             loss_uv_value   += loss_uv.item()
-            loss_bg_value   += loss_bg.item()
+            # loss_bg_value   += loss_bg.item()
             loss_nor_value  += loss_nor.item()
             loss_dep_value  += loss_dep.item()
             
@@ -234,7 +235,7 @@ def test():
     output_dir = tdir("output/test", modelname+generate_name())
     
     from tqdm import tqdm
-    model = UnwarpNet(combine_num=1, wo_bg=True)
+    model = UnwarpNet(combine_num=1)
     args = train_configs.args
     isTrain = True
     model = torch.nn.DataParallel(model.cuda()) 

@@ -8,26 +8,30 @@ import os
 import numpy as np
 from tensorboardX import SummaryWriter
 import math
-# from apex.parallel import DistributedDataParallel as DDP
-# from apex.fp16_utils import *
-# from apex import amp, optimizers
 from tutils import *
 from models.misc.model_cmap import UnwarpNet_cmap, UnwarpNet
+from models.misc.deform_model import DeformNet, construct_plain_bg, construct_plain_cmap
 from dataloader.load_data_2 import filmDataset_3, RealDataset
 from dataloader.print_img import print_img_auto, print_img_with_reprocess
 from dataloader.data_process import reprocess_np_auto, reprocess_auto
 from dataloader.uv2bw import uv2backward_trans_3
 from dataloader.bw_mapping import bw_mapping_single_3
 from models.misc.loss import tv_loss, TVLoss
+from tqdm import tqdm
+from dataloader.iter_mapping import iter_mapping
 
 # HyperParams for Scripts / Names
-# modelname = "std1"
-# modelname = "extrabg_ab"
-modelname = "no_bg"
+modelname = "iter-7-0.01"
 if not train_configs.args.test: 
-    output_dir = tdir("output/train", modelname+generate_name())
-else: output_dir = tdir("output/test", modelname+generate_name())
-writer = SummaryWriter(logdir=tdir(output_dir, "summary"))
+    random_name = generate_name()
+    output_dir = tdir("output/train", modelname+random_name)
+    writer = SummaryWriter(logdir=tdir(output_dir, "summary"))
+    output_dir_eval = tdir("output/eval", modelname+random_name)
+else: 
+    output_dir_test = tdir("output/test", modelname+generate_name())
+    writer = SummaryWriter(logdir=tdir(output_dir_test, "summary"))
+    output_dir = output_dir_test
+    
 max_epoch = 500
 
 def get_lr(optimizer):
@@ -36,47 +40,47 @@ def get_lr(optimizer):
 
 def main():
     # -----------------------------------  Model Build -------------------------
-    model = UnwarpNet(combine_num=1)
+    # model  = UnwarpNet(combine_num=1)
+    model2 = DeformNet()
     args = train_configs.args
     isTrain = True
-    model = torch.nn.DataParallel(model.cuda()) 
+    # model  = torch.nn.DataParallel(model.cuda()) 
+    model2 = torch.nn.DataParallel(model2.cuda()) 
     start_epoch = 1
     # Load Parameters
     # if args.pretrained:
     if True:
         print("Loading Pretrained model~")
-        # /home1/quanquan/code/film_code/output/train/aug20201129-210822-VktsHX/cmap_aug_19.pkl"
-        # "/home1/quanquan/code/Film-Recovery/cmap_only_45.pkl"
-        # "/home1/quanquan/code/Film-Recovery/output/train/new_data20201214-090229-F3z21O/cmap_aug_500.pkl"
-        # "/home1/quanquan/code/Film-Recovery/output/train/std120201219-222928-4gy6xK/cmap_aug_10.pkl"
         # "/home1/quanquan/code/Film-Recovery/output/train/std120201220-014112-xA836H/cmap_aug_500.pkl"
-        pretrained_dict = torch.load("/home1/quanquan/code/Film-Recovery/output/train/extrabg20201223-025124-sJKxHA/model/extrabg_310.pkl", map_location=None)
+        # "/home1/quanquan/code/Film-Recovery/output/train/extrabg20201223-025124-sJKxHA/model/extrabg_310.pkl"
+        pretrained_dict = torch.load("/home1/quanquan/code/Film-Recovery/output/train/iter20201229-084255-1htiye/model/iter_5.pkl", map_location=None)
         start_lr = pretrained_dict['lr']
         start_epoch = pretrained_dict['epoch'] if pretrained_dict['epoch'] < 100 else 100
         # -----------------------  Load partial model  ---------------------
-        model_dict=model.state_dict()
+        model_dict=model2.state_dict()
         # 1. filter out unnecessary keys
         pretrained_dict = {k: v for k, v in pretrained_dict['model_state'].items() if k in model_dict}
         # 2. overwrite entries in the existing state dict
         model_dict.update(pretrained_dict)
         # -------------------------------------------------------------------
         # model.load_state_dict(pretrained_dict['model_state'])
-        model.load_state_dict(model_dict)
+        model2.load_state_dict(model_dict)
     # ------------------------------------  Load Dataset  -------------------------
     kwargs = {'num_workers': 8, 'pin_memory': True} 
     # dataset_test = filmDataset_3(npy_dir="/home1/quanquan/datasets/generate/mesh_film_small/")
     # dataset_test_loader = DataLoader(dataset_test,batch_size=args.test_batch_size, shuffle=False, **kwargs)
+    dataset_eval = RealDataset("imgshow_test2", load_mod="new_ab", reg_start="pad_gaus_40", reg_end="jpg") # reg_str="pad_gaus_40"
+    dataset_eval_loader = DataLoader(dataset_eval, batch_size=1, shuffle=False, **kwargs)
     dataset_train = filmDataset_3("/home1/quanquan/datasets/generate/mesh_film_hypo_alpha2/", load_mod="extra_bg")
     dataset_train_loader = DataLoader(dataset_train, batch_size=args.batch_size, shuffle=True, **kwargs)
     
     # ------------------------------------  Optimizer  -------------------------
-    optimizer = optim.Adam(model.parameters(), lr=0.01)
+    optimizer = optim.Adam(model2.parameters(), lr=0.01)
     scheduler = StepLR(optimizer, step_size=2, gamma=args.gamma)
-    # model, optimizer = amp.initialize(model, optimizer,opt_level='O1',loss_scale="dynamic",verbosity=0)
     #criterion = torch.nn.MSELoss()  
     criterion = torch.nn.L1Loss()
     bc_critic = nn.BCELoss() 
-    tv_loss   = tv_loss
+    # tv_loss = tv_loss
     
     if args.visualize_para:
         for name, parameters in model.named_parameters():
@@ -86,9 +90,10 @@ def main():
     
     # -----------------------------------  Training  ---------------------------
     for epoch in range(start_epoch, max_epoch + 1):
+        model2.train()
         loss_value, loss_cmap_value, loss_ab_value, loss_uv_value, loss_bg_value = 0,0,0,0,0
         loss_nor_value, loss_dep_value = 0,0
-        model.train()
+        loss_bg_t_value, loss_cmap_t_value, loss_deform_value,loss_tv_value = 0,0,0,0
         datalen = len(dataset_train)
         print("Output dir:", output_dir)
         for batch_idx, data in enumerate(dataset_train_loader):
@@ -102,54 +107,70 @@ def main():
             bg_gt  = data[6].cuda()
             
             optimizer.zero_grad()
-            uv, cmap, nor, ab, dep, bg, bg2 = model(ori_gt)  #uv_map, threeD_map, nor_map, alb_map, dep_map, mask_map             
-            # print("ab shapes: ", ab.shape, ab_gt.shape)
             
-            # loss_uv_tv = tv_loss(uv, 0.1)
-            # loss_cmap_tv = tv_tv_loss(cmap, 0.1)
-            
-            loss_cmap = criterion(cmap, cmap_gt).float()
-            loss_ab   = criterion(ab, ab_gt).float()
-            loss_uv   = criterion(uv, uv_gt).float()
-            loss_bg   = criterion(bg, bg_gt).float()
-            loss_nor  = criterion(nor, nor_gt).float()
-            loss_dep  = criterion(dep, dep_gt).float()
-            
-            loss = loss_cmap + loss_bg + loss_nor + loss_dep  + loss_uv + loss_ab
-            loss.backward()
+            deform, _ = model2(ori_gt)      
+            loss_tv = tv_loss(deform, 0.01)
+            bg_template, pad_bg = construct_plain_bg(ori_gt.size(0),img_size=256)
+            cmap_template, pad_cmap = construct_plain_cmap(ori_gt.size(0), img_size=256)
+            dewarp_bg_t   = iter_mapping(bg_template  , deform)
+            dewarp_cmap_t = iter_mapping(cmap_template, deform)
+            loss_bg_t   = criterion(dewarp_bg_t, bg_gt)
+            loss_cmap_t = criterion(dewarp_cmap_t, cmap_gt)
+            loss_deform = loss_bg_t + loss_cmap_t + loss_tv
+            loss_deform.backward()
+            loss_deform_value += loss_deform
+            loss_bg_t_value   += loss_bg_t
+            loss_cmap_t_value += loss_cmap_t_value
+            loss_tv_value += loss_tv
             optimizer.step()
-            
-            loss_value      += loss.item()
-            loss_cmap_value += loss_cmap.item()
-            loss_ab_value   += loss_ab.item()
-            loss_uv_value   += loss_uv.item()
-            loss_bg_value   += loss_bg.item()
-            loss_nor_value  += loss_nor.item()
-            loss_dep_value  += loss_dep.item()
-            
+            # global_step += 1
             lr = get_lr(optimizer)
-            global_step += 1
-            print("\r Epoch[{}/{}] \t batch:{}/{} \t lr:{} \t loss: {}".format(epoch, max_epoch, batch_idx,datalen,lr, loss_value/(batch_idx+1)), end=" ") 
             writer.add_scalar('summary/lrate_batch', lr, global_step=global_step)
+            print("Epoch[\t{}/{}] \t batch:\t{}/{} \t lr:{} \t loss: {}".format(epoch, max_epoch, batch_idx,datalen,lr, loss_deform_value/(batch_idx+1)), end=" ") 
+            print(f"loss_t: {loss_tv_value/(batch_idx+1)}, ")
+            
             # w("check code")
             # break
         
         # ------ Scheduler Step -------
         # scheduler.step()
-        
-        writer_tb((loss_value/(batch_idx+1), loss_ab_value/(batch_idx+1), loss_uv_value/(batch_idx+1),\
-            loss_cmap_value/(batch_idx+1), loss_nor_value/(batch_idx+1), loss_dep_value/(batch_idx+1),\
-                loss_bg_value/(batch_idx+1), lr), epoch=epoch)
-        write_imgs_2((cmap[0,:,:,:], uv[0,:,:,:], ab[0,:,:,:], bg[0,:,:,:], nor[0,:,:,:], dep[0,:,:,:], bg2[0,:,:,:],\
-            ori_gt[0,:,:,:], cmap_gt[0,:,:,:], uv_gt[0,:,:,:], ab_gt[0,:,:,:], bg_gt[0,:,:,:], nor_gt[0,:,:,:], dep_gt[0,:,:,:]), epoch)
+        writer.add_scalar('summary/loss_bg_t'  , loss_bg_t_value/(batch_idx+1)  , global_step=epoch)
+        writer.add_scalar('summary/loss_cmap_t', loss_cmap_t_value/(batch_idx+1), global_step=epoch)     
+        writer.add_scalar('summary/loss_tv', loss_tv_value/(batch_idx+1), global_step=epoch)
+        print_img_with_reprocess(dewarp_bg_t[0,:,:,:]  , "bg"  , fname=tfilename(output_dir,"imgshow/epoch_{}".format(epoch), "bg.jpg"))
+        print_img_with_reprocess(dewarp_cmap_t[0,:,:,:], "cmap", fname=tfilename(output_dir,"imgshow/epoch_{}".format(epoch), "cmap.jpg"))
+        print_img_with_reprocess(ori_gt[0,:,:,:]       , "ori" ,  fname=tfilename(output_dir,"imgshow/epoch_{}".format(epoch), "ori_gt.jpg")) 
+        print_img_with_reprocess(bg_gt[0,:,:,:]        ,  "bg" ,  fname=tfilename(output_dir,"imgshow/epoch_{}".format(epoch), "bg_gt.jpg"))
+        print_img_with_reprocess(cmap_gt[0,:,:,:]      ,  "exr",  fname=tfilename(output_dir,"imgshow/epoch_{}".format(epoch), "cmap_gt.jpg")) #
 
         if isTrain and args.save_model and epoch %5 == 0:
             state = {'epoch': epoch + 1,
                      'lr': lr,
-                     'model_state': model.state_dict(),
+                     'model_state': model2.state_dict(),
                      'optimizer_state': optimizer.state_dict()
                      }
             torch.save(state, tfilename(output_dir, "model", "{}_{}.pkl".format(modelname, epoch)))
+        
+        # -----------  Evaluation  -------------
+        if True: 
+            model2.eval()
+            p(output_dir_eval)
+            for batch_idx, data in tqdm(enumerate(dataset_eval_loader)):
+                ori_gt = data[0].cuda()
+                ori_gt_large = data[1].cuda()
+                
+                deform, _ = model2(ori_gt)               
+                bg_template, pad_bg = construct_plain_bg(ori_gt.size(0),img_size=256)
+                cmap_template, pad_cmap = construct_plain_cmap(ori_gt.size(0), img_size=256)
+                dewarp_bg_t   = iter_mapping(bg_template  , deform)
+                dewarp_cmap_t = iter_mapping(cmap_template, deform)
+                
+                print_img_with_reprocess(dewarp_bg_t[0,:,:,:]  , "bg"  , fname=tfilename(output_dir_eval,"imgshow/epoch_{}".format(batch_idx), "bg.jpg"))
+                print_img_with_reprocess(dewarp_cmap_t[0,:,:,:], "cmap", fname=tfilename(output_dir_eval,"imgshow/epoch_{}".format(batch_idx), "cmap.jpg"))
+                print_img_with_reprocess(ori_gt[0,:,:,:]       , "ori" ,  fname=tfilename(output_dir_eval,"imgshow/epoch_{}".format(batch_idx), "ori_gt.jpg")) 
+                
+                if batch_idx >25:
+                    break
 
 def writer_tb(loss_tuple, epoch):
     loss, loss_ab, loss_uv, \
@@ -222,28 +243,21 @@ def write_imgs_2(img_tuple, epoch, type_tuple=None, name_tuple=None, training=Tr
         print_img_auto(dewarp_gt,"ori", fname=tfilename(output_dir,"imgshow/epoch_{}".format(epoch), "dewarp_gt.jpg"))
         print_img_auto(dewarp2,  "ori", fname=tfilename(output_dir,"imgshow/epoch_{}".format(epoch), "dewarp2.jpg"))
     
-# def write_imgs(img_tuple, name_tuple):
-#     img_list = list(img_tuple)
-#     name_list = list(name_tuple)
-#     assert len(img_list) == len(name_list)
-#     for i in range(len(img_list)):
-#         print_img_auto(img_list[i], name_list[i], fname=tfilename(output_dir, name_list[i]+".jpg")
 
 def test():
     # -----------------------------------  Model Build -------------------------
-    output_dir = tdir("output/test", modelname+generate_name())
-    
     from tqdm import tqdm
-    model = UnwarpNet(combine_num=1, wo_bg=True)
+    model = DeformNet()
     args = train_configs.args
-    isTrain = True
     model = torch.nn.DataParallel(model.cuda()) 
     start_epoch = 1
     if True:
         print("Loading Pretrained model~") 
         # "/home1/quanquan/code/Film-Recovery/output/train/std120201220-014112-xA836H/cmap_aug_500.pkl"
         # "/home1/quanquan/code/Film-Recovery/output/train/extrabg20201223-025124-sJKxHA/model/extrabg_190.pkl"
-        pretrained_dict = torch.load("/home1/quanquan/code/Film-Recovery/output/train/extrabg_ab20201224-230459-AvKPR7/model/extrabg_ab_455.pkl", map_location=None)
+        # "/home1/quanquan/code/Film-Recovery/output/train/extrabg_ab20201224-230459-AvKPR7/model/extrabg_ab_455.pkl"
+        # "/home1/quanquan/code/Film-Recovery/output/train/iter20201229-221658-CxBn85/model/iter_175.pkl"
+        pretrained_dict = torch.load("/home1/quanquan/code/Film-Recovery/output/train/iter-7-0.0120201230-032707-wyKn9z/model/iter-7-0.01_390.pkl", map_location=None)
         model.load_state_dict(pretrained_dict['model_state'])
     # ------------------------------------  Load Dataset  -------------------------
     kwargs = {'num_workers': 8, 'pin_memory': True} 
@@ -254,13 +268,22 @@ def test():
     dataset_loader = DataLoader(dataset_test, batch_size=1, shuffle=False, **kwargs)
     model.eval()
     
+    p(output_dir_test)
     for batch_idx, data in tqdm(enumerate(dataset_loader)):
         ori_gt = data[0].cuda()
         ori_gt_large = data[1].cuda()
-        uv, cmap, nor, ab, dep, bg, bg2 = model(ori_gt)
         
-        write_imgs_2((cmap[0,:,:,:], uv[0,:,:,:], ab[0,:,:,:], bg[0,:,:,:], nor[0,:,:,:], dep[0,:,:,:], bg2[0,:,:,:], ori_gt[0,:,:,:]), epoch=batch_idx, training=False)
-        # cmap, uv, ab, bg, nor, dep, bg2, ori_gt
+        deform, _ = model(ori_gt)
+        
+        bg_template, pad_bg = construct_plain_bg(ori_gt.size(0),img_size=256)
+        cmap_template, pad_cmap = construct_plain_cmap(ori_gt.size(0), img_size=256)
+        dewarp_bg_t   = iter_mapping(bg_template  , deform)
+        dewarp_cmap_t = iter_mapping(cmap_template, deform)
+        
+        print_img_with_reprocess(dewarp_bg_t[0,:,:,:]  , "bg"  , fname=tfilename(output_dir_test,"imgshow/epoch_{}".format(batch_idx), "bg.jpg"))
+        print_img_with_reprocess(dewarp_cmap_t[0,:,:,:], "cmap", fname=tfilename(output_dir_test,"imgshow/epoch_{}".format(batch_idx), "cmap.jpg"))
+        print_img_with_reprocess(ori_gt[0,:,:,:]       , "ori" ,  fname=tfilename(output_dir_test,"imgshow/epoch_{}".format(batch_idx), "ori_gt.jpg")) 
+        
         if batch_idx >25:
             break
         
