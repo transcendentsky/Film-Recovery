@@ -1,8 +1,6 @@
 **CT Film Recovery Network**
 =======================
 <!-- Description -->
-code for CVPR 2021 submission
-
 dataset link: coming soon
 
 # Usage
